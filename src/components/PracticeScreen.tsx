@@ -13,6 +13,7 @@ export const PracticeScreen: React.FC = () => {
     currentNoteIndex,
     detectedPitch,
     settings,
+    audioCapture: storeAudioCapture,
     pausePractice,
     resumePractice,
     exitPractice,
@@ -106,9 +107,16 @@ export const PracticeScreen: React.FC = () => {
     const initializeAudio = async () => {
       if (!settings.testMode) {
         try {
-          // Initialize AudioCapture first
-          audioCaptureRef.current = new AudioCapture();
-          await audioCaptureRef.current.initialize();
+          // Use pre-initialized AudioCapture from MicRequest (iOS user gesture)
+          if (storeAudioCapture) {
+            console.log('[PracticeScreen] Using pre-initialized AudioCapture from store');
+            audioCaptureRef.current = storeAudioCapture;
+          } else {
+            // Fallback: initialize here (for desktop browsers)
+            console.log('[PracticeScreen] No pre-initialized AudioCapture, creating new one');
+            audioCaptureRef.current = new AudioCapture();
+            await audioCaptureRef.current.initialize();
+          }
 
           // Get the actual device sample rate (iOS often 48000, desktop often 44100)
           const actualSampleRate = audioCaptureRef.current.getSampleRate();
@@ -117,15 +125,16 @@ export const PracticeScreen: React.FC = () => {
           // Create PitchDetector with actual sample rate and relaxed threshold
           pitchDetectorRef.current = new PitchDetector({
             sampleRate: actualSampleRate,
-            threshold: 0.5,  // Relaxed from 0.9 for better real piano detection
+            threshold: 0.5,
             analysisInterval: 50,
-            noiseGate: -50   // Relaxed from -60 for better sensitivity
+            noiseGate: -50
           });
 
           // Start audio loop after initialization is complete
           startAudioLoop();
         } catch (error) {
           console.error('[PracticeScreen] Audio initialization failed:', error);
+          setRenderError('오디오 초기화 실패. 마이크 권한을 확인하세요.');
         }
       }
     };
@@ -146,9 +155,9 @@ export const PracticeScreen: React.FC = () => {
       if (animationFrameRef.current) {
         cancelAnimationFrame(animationFrameRef.current);
       }
-      audioCaptureRef.current?.cleanup();
+      // Don't cleanup here - it's managed by exitPractice in the store
     };
-  }, [currentSong, settings.testMode]);
+  }, [currentSong, settings.testMode, storeAudioCapture]);
 
   React.useEffect(() => {
     if (!currentSong || !noteMatcherRef.current) return;
@@ -229,7 +238,30 @@ export const PracticeScreen: React.FC = () => {
     }
   };
 
-  if (!currentSong) return null;
+  if (!currentSong) {
+    return (
+      <div className="practice-container">
+        <div style={{
+          flex: 1,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          flexDirection: 'column',
+          padding: '40px',
+          textAlign: 'center'
+        }}>
+          <div style={{ fontSize: '3rem', marginBottom: '20px' }}>🎵</div>
+          <h2 style={{ color: '#2d3748', marginBottom: '16px' }}>곡이 선택되지 않았습니다</h2>
+          <p style={{ color: '#718096', marginBottom: '24px' }}>
+            연습할 곡을 선택해주세요.
+          </p>
+          <button className="btn btn-primary" onClick={exitPractice}>
+            곡 선택으로 돌아가기
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   const progress = ((currentNoteIndex / currentSong.notes.length) * 100);
   const currentNote = currentSong.notes[currentNoteIndex];

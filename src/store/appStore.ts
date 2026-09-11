@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { Song } from '../types';
+import { AudioCapture } from '../modules/audio/AudioCapture';
 
 export type AppState = 'idle' | 'song-selection' | 'requesting-mic' | 'practice' | 'paused' | 'complete' | 'error';
 export type PracticeState = 'waiting' | 'detecting' | 'matching' | 'sustaining' | 'success' | 'wrong-note';
@@ -16,6 +17,7 @@ interface AppStore {
   isListening: boolean;
   detectedPitch: number | null;
   detectedClarity: number;
+  audioCapture: AudioCapture | null;
   
   // Practice session
   practiceState: PracticeState;
@@ -52,6 +54,7 @@ interface AppStore {
   resetSession: () => void;
   setError: (error: string | null) => void;
   updateSettings: (settings: Partial<AppStore['settings']>) => void;
+  setAudioCapture: (audioCapture: AudioCapture | null) => void;
 }
 
 export const useAppStore = create<AppStore>((set, get) => ({
@@ -62,6 +65,7 @@ export const useAppStore = create<AppStore>((set, get) => ({
   isListening: false,
   detectedPitch: null,
   detectedClarity: 0,
+  audioCapture: null,
   practiceState: 'waiting',
   sessionStartTime: null,
   correctNotes: 0,
@@ -106,14 +110,19 @@ export const useAppStore = create<AppStore>((set, get) => ({
     isListening: true
   }),
   
-  exitPractice: () => set((state) => ({
-    appState: 'song-selection',
-    isListening: false,
-    currentSong: null,
-    currentNoteIndex: 0,
-    sustainProgress: 0,
-    settings: { ...state.settings, testMode: false }
-  })),
+  exitPractice: () => {
+    const { audioCapture } = get();
+    audioCapture?.cleanup();
+    set((state) => ({
+      appState: 'song-selection',
+      isListening: false,
+      currentSong: null,
+      currentNoteIndex: 0,
+      sustainProgress: 0,
+      audioCapture: null,
+      settings: { ...state.settings, testMode: false }
+    }));
+  },
   
   onPitchDetected: (frequency, clarity) => set({
     detectedPitch: frequency,
@@ -177,5 +186,7 @@ export const useAppStore = create<AppStore>((set, get) => ({
   
   updateSettings: (newSettings) => set((state) => ({
     settings: { ...state.settings, ...newSettings }
-  }))
+  })),
+  
+  setAudioCapture: (audioCapture) => set({ audioCapture })
 }));

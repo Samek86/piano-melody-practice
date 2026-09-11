@@ -1,8 +1,9 @@
 import React from 'react';
 import { useAppStore } from '../store/appStore';
+import { AudioCapture } from '../modules/audio/AudioCapture';
 
 export const MicRequest: React.FC<{ onGranted: () => void }> = ({ onGranted }) => {
-  const { currentSong, setError, setAppState } = useAppStore();
+  const { currentSong, setError, setAppState, setAudioCapture } = useAppStore();
   const [requesting, setRequesting] = React.useState(false);
 
   const requestMic = async () => {
@@ -10,9 +11,19 @@ export const MicRequest: React.FC<{ onGranted: () => void }> = ({ onGranted }) =
     try {
       // Force testMode to false when using real microphone
       useAppStore.getState().updateSettings({ testMode: false });
-      await navigator.mediaDevices.getUserMedia({ audio: true });
+      
+      // Bootstrap AudioCapture here (iOS requires user gesture)
+      console.log('[MicRequest] Initializing AudioCapture from user gesture...');
+      const audioCapture = new AudioCapture();
+      await audioCapture.initialize();
+      
+      // Store for PracticeScreen to use
+      setAudioCapture(audioCapture);
+      console.log('[MicRequest] AudioCapture ready, state:', audioCapture.state);
+      
       onGranted();
     } catch (error) {
+      console.error('[MicRequest] Microphone initialization failed:', error);
       setError(`마이크 접근 실패: ${(error as Error).message}`);
     }
     setRequesting(false);

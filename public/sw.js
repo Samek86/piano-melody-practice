@@ -1,5 +1,5 @@
 // Simple service worker for offline support
-const CACHE_NAME = 'piano-practice-v1';
+const CACHE_NAME = 'piano-practice-v2';
 const urlsToCache = [
   '/',
   '/index.html',
@@ -11,20 +11,38 @@ self.addEventListener('install', (event) => {
     caches.open(CACHE_NAME)
       .then((cache) => cache.addAll(urlsToCache))
   );
+  // Force immediate activation
+  self.skipWaiting();
 });
 
 self.addEventListener('fetch', (event) => {
-  event.respondWith(
-    caches.match(event.request)
-      .then((response) => {
-        // Cache hit - return response
-        if (response) {
+  const url = new URL(event.request.url);
+  
+  // Network-first for HTML to avoid serving stale app code
+  if (event.request.mode === 'navigate' || 
+      url.pathname === '/' || 
+      url.pathname === '/index.html') {
+    event.respondWith(
+      fetch(event.request)
+        .then((response) => {
+          // Cache the fresh response
+          const responseToCache = response.clone();
+          caches.open(CACHE_NAME)
+            .then((cache) => cache.put(event.request, responseToCache));
           return response;
-        }
-        return fetch(event.request);
-      }
-    )
-  );
+        })
+        .catch(() => {
+          // Fallback to cache if offline
+          return caches.match(event.request);
+        })
+    );
+  } else {
+    // Cache-first for assets (manifest, etc.)
+    event.respondWith(
+      caches.match(event.request)
+        .then((response) => response || fetch(event.request))
+    );
+  }
 });
 
 self.addEventListener('activate', (event) => {
@@ -37,6 +55,9 @@ self.addEventListener('activate', (event) => {
           }
         })
       );
+    }).then(() => {
+      // Take control of all clients immediately
+      return self.clients.claim();
     })
   );
 });

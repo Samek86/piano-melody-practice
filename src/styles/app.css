@@ -231,7 +231,7 @@ h2 {
   padding-left: max(20px, env(safe-area-inset-left));
   padding-right: max(20px, env(safe-area-inset-right));
   overflow: hidden;
-  min-height: 0;
+  min-height: 200px;
   position: relative;
 }
 
@@ -417,7 +417,7 @@ h2 {
     padding-left: max(6px, env(safe-area-inset-left));
     padding-right: max(6px, env(safe-area-inset-right));
     flex: 1;
-    min-height: 0;
+    min-height: 120px;
   }
   
   .pitch-indicator {
