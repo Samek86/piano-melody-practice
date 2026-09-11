@@ -140,20 +140,21 @@ export class ScoreRenderer {
 
       const noteSlot = 52;
       const clefTimeWidth = 70;
-      const margin = 20;
+      const marginX = 20;
 
       measuresToRender.forEach((measure, idx) => {
         const actualMeasureIdx = startMeasure + idx;
         
         const noteCount = measure.notes.length;
-        const contentW = (actualMeasureIdx === 0 ? clefTimeWidth : 0) + noteCount * noteSlot + 36;
-        const staveWidth = Math.min(width - 2 * margin, Math.max(contentW, width * 0.72));
+        const needsClef = actualMeasureIdx === 0;
+        const contentW = (needsClef ? clefTimeWidth : 24) + noteCount * noteSlot + 36;
+        const staveWidth = Math.min(width - 2 * marginX, Math.max(contentW, width * 0.72));
         const staveX = (width - staveWidth) / 2;
         const staveY = height / 2 - 40;
         
         const stave = new Stave(staveX, staveY, staveWidth);
         
-        if (actualMeasureIdx === 0) {
+        if (needsClef) {
           stave.addClef('treble');
           stave.addTimeSignature(`${this.timeSignature[0]}/${this.timeSignature[1]}`);
         }
@@ -196,7 +197,7 @@ export class ScoreRenderer {
         voice.setStrict(false);
         voice.addTickables(vexNotes);
 
-        const formatterWidth = staveWidth - (actualMeasureIdx === 0 ? clefTimeWidth + 20 : 30);
+        const formatterWidth = staveWidth - (needsClef ? clefTimeWidth + 20 : 30);
         new Formatter().joinVoices([voice]).format([voice], formatterWidth);
         voice.draw(context, stave);
 
