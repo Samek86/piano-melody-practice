@@ -130,12 +130,6 @@ export class ScoreRenderer {
       this.renderer.resize(width, height);
       const context = this.renderer.getContext();
 
-      const SCALE = 3.5;
-      const logicalWidth = width / SCALE;
-      const logicalHeight = height / SCALE;
-
-      context.scale(SCALE, SCALE);
-
       const measuresPerWindow = 1;
 
       const startMeasure = this.currentMeasureWindow;
@@ -144,22 +138,20 @@ export class ScoreRenderer {
 
       if (measuresToRender.length === 0) return;
 
-      const marginX = 30;
-      const clefTimeWidth = 80;
-      const availableWidth = logicalWidth - 2 * marginX;
-      
-      const staveWidth = availableWidth;
-      const staveY = logicalHeight / 2 - 40;
+      const noteSlot = 28;
+      const clefTimeWidth = 48;
 
       measuresToRender.forEach((measure, idx) => {
         const actualMeasureIdx = startMeasure + idx;
         
-        const x = marginX;
-        const currentStaveWidth = staveWidth;
+        const noteCount = measure.notes.length;
+        const contentWidth = (actualMeasureIdx === 0 ? clefTimeWidth : 0) + noteCount * noteSlot;
+        const staveWidth = Math.min(width - 40, contentWidth + 60);
+        const staveX = (width - staveWidth) / 2;
+        const staveY = height / 2 - 40;
         
-        const stave = new Stave(x, staveY, currentStaveWidth);
+        const stave = new Stave(staveX, staveY, staveWidth);
         
-        // Only show clef+time signature on the first measure of the entire song
         if (actualMeasureIdx === 0) {
           stave.addClef('treble');
           stave.addTimeSignature(`${this.timeSignature[0]}/${this.timeSignature[1]}`);
@@ -203,12 +195,10 @@ export class ScoreRenderer {
         voice.setStrict(false);
         voice.addTickables(vexNotes);
 
-        // Give formatter adequate width
-        const formatterWidth = currentStaveWidth - (actualMeasureIdx === 0 ? clefTimeWidth : 30);
+        const formatterWidth = staveWidth - (actualMeasureIdx === 0 ? clefTimeWidth : 20);
         new Formatter().joinVoices([voice]).format([voice], formatterWidth);
         voice.draw(context, stave);
 
-        // Attach data-note-index attributes to each note's SVG group for proper mapping
         const svg = this.container.querySelector('svg');
         if (svg) {
           const vfStaveNotes = svg.querySelectorAll('.vf-stavenote');
@@ -228,21 +218,22 @@ export class ScoreRenderer {
       const svg = this.container.querySelector('svg') as SVGSVGElement;
       if (svg) {
         try {
-          const bbox = svg.getBBox();
-          
-          const padding = 20;
-          const viewBoxX = Math.max(0, bbox.x - padding);
-          const viewBoxY = Math.max(0, bbox.y - padding);
-          const viewBoxWidth = bbox.width + 2 * padding;
-          const viewBoxHeight = bbox.height + 2 * padding;
-          
-          svg.setAttribute('viewBox', `${viewBoxX} ${viewBoxY} ${viewBoxWidth} ${viewBoxHeight}`);
-          svg.setAttribute('preserveAspectRatio', 'xMidYMid meet');
-          svg.style.width = '100%';
-          svg.style.height = '100%';
-          svg.style.display = 'block';
+          const staveEl = svg.querySelector('.vf-stave');
+          if (staveEl) {
+            const sb = (staveEl as SVGGraphicsElement).getBBox();
+            
+            const lineGap = 10;
+            const padX = Math.max(8, sb.width * 0.05);
+            const padY = lineGap * 1.8;
+            
+            svg.setAttribute('viewBox', `${sb.x - padX} ${sb.y - padY} ${sb.width + padX * 2} ${sb.height + padY * 2}`);
+            svg.setAttribute('preserveAspectRatio', 'xMidYMid meet');
+            svg.style.width = '100%';
+            svg.style.height = '100%';
+            svg.style.display = 'block';
+          }
         } catch (err) {
-          console.warn('Could not compute viewBox from content:', err);
+          console.warn('Could not compute viewBox from .vf-stave:', err);
         }
       }
     } catch (error) {
