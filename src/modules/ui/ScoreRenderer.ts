@@ -138,8 +138,9 @@ export class ScoreRenderer {
 
       if (measuresToRender.length === 0) return;
 
-      const noteSlot = 52;
-      const clefTimeWidth = 70;
+      const clefTimeWidth = 56;
+      const noteSlot = 40;
+      const endPad = 36;
       const marginX = 20;
 
       measuresToRender.forEach((measure, idx) => {
@@ -147,8 +148,8 @@ export class ScoreRenderer {
         
         const noteCount = measure.notes.length;
         const needsClef = actualMeasureIdx === 0;
-        const contentW = (needsClef ? clefTimeWidth : 24) + noteCount * noteSlot + 36;
-        const staveWidth = Math.min(width - 2 * marginX, Math.max(contentW, width * 0.72));
+        const contentW = (needsClef ? clefTimeWidth : 24) + noteCount * noteSlot + endPad;
+        const staveWidth = Math.min(width - 2 * marginX, contentW);
         const staveX = (width - staveWidth) / 2;
         const staveY = height / 2 - 40;
         
@@ -197,7 +198,7 @@ export class ScoreRenderer {
         voice.setStrict(false);
         voice.addTickables(vexNotes);
 
-        const formatterWidth = staveWidth - (needsClef ? clefTimeWidth + 20 : 30);
+        const formatterWidth = staveWidth - (needsClef ? clefTimeWidth + 12 : 12);
         new Formatter().joinVoices([voice]).format([voice], formatterWidth);
         voice.draw(context, stave);
 
@@ -225,8 +226,8 @@ export class ScoreRenderer {
             const sb = (staveEl as SVGGraphicsElement).getBBox();
             
             const lineGap = 10;
-            const padX = Math.max(14, sb.width * 0.08);
-            const padY = lineGap * 3.2;
+            const padX = Math.max(8, sb.width * 0.04);
+            const padY = lineGap * 2.1;
             
             svg.setAttribute('viewBox', `${sb.x - padX} ${sb.y - padY} ${sb.width + padX * 2} ${sb.height + padY * 2}`);
             svg.setAttribute('preserveAspectRatio', 'xMidYMid meet');
