@@ -5,6 +5,7 @@ export interface NoteMatchingConfig {
   toleranceCents: number;
   sustainWindowMs: number;
   debounceMs: number;
+  a4Hz?: number;
 }
 
 export class NoteMatcher {
@@ -44,7 +45,8 @@ export class NoteMatcher {
     }
 
     // Convert detected frequency to MIDI for pitch class comparison
-    const detectedMidi = frequencyToMidi(detectedFrequency);
+    const a4 = this.config.a4Hz ?? 440;
+    const detectedMidi = frequencyToMidi(detectedFrequency, a4);
     
     // Check if pitch class matches (octave-invariant)
     const isPitchClassCorrect = this.isPitchClassMatch(detectedMidi, this.currentTargetNote);
@@ -52,7 +54,7 @@ export class NoteMatcher {
     if (!isPitchClassCorrect) {
       this.matchStartTime = null;
       // Calculate cents off from exact target for feedback
-      const targetFreq = midiToFrequency(this.currentTargetNote);
+      const targetFreq = midiToFrequency(this.currentTargetNote, a4);
       const centsOff = calculateCentsOff(detectedFrequency, targetFreq);
       return this.createResult(false, 0, detectedMidi, centsOff);
     }
@@ -63,7 +65,7 @@ export class NoteMatcher {
     const detectedOctave = Math.floor(detectedMidi / 12);
     const closestTargetInDetectedOctave = detectedOctave * 12 + targetPitchClass;
     
-    const closestTargetFreq = midiToFrequency(closestTargetInDetectedOctave);
+    const closestTargetFreq = midiToFrequency(closestTargetInDetectedOctave, a4);
     const centsOff = calculateCentsOff(detectedFrequency, closestTargetFreq);
 
     // Check if it's within tolerance (using the closest octave)

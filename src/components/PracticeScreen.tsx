@@ -164,7 +164,8 @@ export const PracticeScreen: React.FC = () => {
     noteMatcherRef.current = new NoteMatcher({
       toleranceCents: settings.toleranceCents,
       sustainWindowMs: settings.sustainWindowMs,
-      debounceMs: 100
+      debounceMs: 100,
+      a4Hz: settings.a4Hz
     });
     noteMatcherRef.current.setTargetNote(currentSong.notes[0].pitch);
 
@@ -182,7 +183,7 @@ export const PracticeScreen: React.FC = () => {
       audioCaptureRef.current = null;
       pitchDetectorRef.current = null;
     };
-  }, [currentSong, settings.testMode]);
+  }, [currentSong, settings.testMode, settings.a4Hz, settings.toleranceCents, settings.sustainWindowMs]);
 
   React.useEffect(() => {
     if (!currentSong || !noteMatcherRef.current) return;
@@ -294,7 +295,7 @@ export const PracticeScreen: React.FC = () => {
   const handleKeyboardNote = (midiNote: number) => {
     if (!noteMatcherRef.current || !currentSong) return;
 
-    const frequency = 440 * Math.pow(2, (midiNote - 69) / 12);
+    const frequency = settings.a4Hz * Math.pow(2, (midiNote - 69) / 12);
     onPitchDetected(frequency, 1.0);
 
     const matchResult = noteMatcherRef.current.matchInstant(midiNote);
@@ -454,9 +455,9 @@ export const PracticeScreen: React.FC = () => {
         </div>
 
         <div className="pitch-indicator">
-          {detectedPitch && Number.isFinite(detectedPitch) && detectedPitch > 0 && Number.isFinite(frequencyToMidi(detectedPitch)) ? (
+          {detectedPitch && Number.isFinite(detectedPitch) && detectedPitch > 0 && Number.isFinite(frequencyToMidi(detectedPitch, settings.a4Hz)) ? (
             <>
-              🎵 감지: {midiToNoteName(frequencyToMidi(detectedPitch))}
+              🎵 감지: {midiToNoteName(frequencyToMidi(detectedPitch, settings.a4Hz))}
               {currentNote && ` (목표: ${midiToNoteName(currentNote.pitch)})`}
             </>
           ) : (

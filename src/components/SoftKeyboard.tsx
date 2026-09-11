@@ -1,5 +1,6 @@
 import React from 'react';
 import { midiToFrequency } from '../utils';
+import { useAppStore } from '../store/appStore';
 
 interface SoftKeyboardProps {
   onNotePlay: (midiNote: number) => void;
@@ -17,6 +18,7 @@ const KEYS = [
 ];
 
 export const SoftKeyboard: React.FC<SoftKeyboardProps> = ({ onNotePlay }) => {
+  const a4Hz = useAppStore((s) => s.settings.a4Hz);
   const audioContextRef = React.useRef<AudioContext | null>(null);
   const [pressedKey, setPressedKey] = React.useState<number | null>(null);
 
@@ -47,7 +49,7 @@ export const SoftKeyboard: React.FC<SoftKeyboardProps> = ({ onNotePlay }) => {
     if (!ctx) return;
     try {
       if (ctx.state === 'suspended') void ctx.resume();
-      const freq = midiToFrequency(midiNote);
+      const freq = midiToFrequency(midiNote, a4Hz);
       const oscillator = ctx.createOscillator();
       const gainNode = ctx.createGain();
       oscillator.type = 'sine';
