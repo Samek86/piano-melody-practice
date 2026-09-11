@@ -1,5 +1,5 @@
 import { MatchResult } from '../../types';
-import { midiToFrequency, calculateCentsOff } from '../../utils';
+import { midiToFrequency, calculateCentsOff, frequencyToMidi } from '../../utils';
 
 export interface NoteMatchingConfig {
   toleranceCents: number;
@@ -22,6 +22,14 @@ export class NoteMatcher {
     this.matchStartTime = null;
   }
 
+  private getPitchClass(midiNote: number): number {
+    return midiNote % 12;
+  }
+
+  private isPitchClassMatch(detected: number, target: number): boolean {
+    return this.getPitchClass(detected) === this.getPitchClass(target);
+  }
+
   checkMatch(detectedFrequency: number | null): MatchResult {
     const now = Date.now();
 
@@ -35,9 +43,30 @@ export class NoteMatcher {
       return this.createResult(false, 0);
     }
 
-    const targetFreq = midiToFrequency(this.currentTargetNote);
-    const centsOff = calculateCentsOff(detectedFrequency, targetFreq);
+    // Convert detected frequency to MIDI for pitch class comparison
+    const detectedMidi = frequencyToMidi(detectedFrequency);
+    
+    // Check if pitch class matches (octave-invariant)
+    const isPitchClassCorrect = this.isPitchClassMatch(detectedMidi, this.currentTargetNote);
+    
+    if (!isPitchClassCorrect) {
+      this.matchStartTime = null;
+      // Calculate cents off from exact target for feedback
+      const targetFreq = midiToFrequency(this.currentTargetNote);
+      const centsOff = calculateCentsOff(detectedFrequency, targetFreq);
+      return this.createResult(false, 0, detectedMidi, centsOff);
+    }
 
+    // Pitch class matches! Now find the closest octave of the target note
+    // to calculate meaningful cents offset
+    const targetPitchClass = this.getPitchClass(this.currentTargetNote);
+    const detectedOctave = Math.floor(detectedMidi / 12);
+    const closestTargetInDetectedOctave = detectedOctave * 12 + targetPitchClass;
+    
+    const closestTargetFreq = midiToFrequency(closestTargetInDetectedOctave);
+    const centsOff = calculateCentsOff(detectedFrequency, closestTargetFreq);
+
+    // Check if it's within tolerance (using the closest octave)
     const isMatch = Math.abs(centsOff) <= this.config.toleranceCents;
 
     if (isMatch) {
@@ -49,13 +78,13 @@ export class NoteMatcher {
       if (sustainedMs >= this.config.sustainWindowMs) {
         this.lastMatchTime = now;
         this.matchStartTime = null;
-        return this.createResult(true, sustainedMs, this.currentTargetNote, centsOff);
+        return this.createResult(true, sustainedMs, detectedMidi, centsOff);
       }
 
-      return this.createResult(false, sustainedMs, this.currentTargetNote, centsOff);
+      return this.createResult(false, sustainedMs, detectedMidi, centsOff);
     } else {
       this.matchStartTime = null;
-      return this.createResult(false, 0, this.currentTargetNote, centsOff);
+      return this.createResult(false, 0, detectedMidi, centsOff);
     }
   }
 
@@ -70,14 +99,15 @@ export class NoteMatcher {
       return this.createResult(false, 0);
     }
 
-    const isMatch = midiNote === this.currentTargetNote;
+    // Use octave-invariant matching: compare pitch classes
+    const isMatch = this.isPitchClassMatch(midiNote, this.currentTargetNote);
 
     if (isMatch) {
       this.lastMatchTime = now;
       this.matchStartTime = null;
-      return this.createResult(true, 0, this.currentTargetNote, 0);
+      return this.createResult(true, 0, midiNote, 0);
     } else {
-      return this.createResult(false, 0, this.currentTargetNote, undefined);
+      return this.createResult(false, 0, midiNote, undefined);
     }
   }
 

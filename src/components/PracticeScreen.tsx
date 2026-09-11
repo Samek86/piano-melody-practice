@@ -85,18 +85,32 @@ export const PracticeScreen: React.FC = () => {
   React.useEffect(() => {
     if (!currentSong) return;
 
-    // Initialize audio if not in test mode
-    if (!settings.testMode) {
-      audioCaptureRef.current = new AudioCapture();
-      audioCaptureRef.current.initialize().catch(console.error);
+    const initializeAudio = async () => {
+      if (!settings.testMode) {
+        try {
+          // Initialize AudioCapture first
+          audioCaptureRef.current = new AudioCapture();
+          await audioCaptureRef.current.initialize();
 
-      pitchDetectorRef.current = new PitchDetector({
-        sampleRate: 44100,
-        threshold: 0.9,
-        analysisInterval: 50,
-        noiseGate: -60
-      });
-    }
+          // Get the actual device sample rate (iOS often 48000, desktop often 44100)
+          const actualSampleRate = audioCaptureRef.current.getSampleRate();
+          console.log(`[PracticeScreen] Using sample rate: ${actualSampleRate} Hz`);
+
+          // Create PitchDetector with actual sample rate and relaxed threshold
+          pitchDetectorRef.current = new PitchDetector({
+            sampleRate: actualSampleRate,
+            threshold: 0.5,  // Relaxed from 0.9 for better real piano detection
+            analysisInterval: 50,
+            noiseGate: -50   // Relaxed from -60 for better sensitivity
+          });
+
+          // Start audio loop after initialization is complete
+          startAudioLoop();
+        } catch (error) {
+          console.error('[PracticeScreen] Audio initialization failed:', error);
+        }
+      }
+    };
 
     noteMatcherRef.current = new NoteMatcher({
       toleranceCents: settings.toleranceCents,
@@ -107,10 +121,8 @@ export const PracticeScreen: React.FC = () => {
     // Set target note
     noteMatcherRef.current.setTargetNote(currentSong.notes[0].pitch);
 
-    // Start audio loop
-    if (!settings.testMode) {
-      startAudioLoop();
-    }
+    // Initialize audio asynchronously
+    initializeAudio();
 
     return () => {
       if (animationFrameRef.current) {
