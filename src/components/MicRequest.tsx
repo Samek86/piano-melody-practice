@@ -1,5 +1,6 @@
 import React from 'react';
 import { useAppStore } from '../store/appStore';
+import { bootstrapAudioCapture } from '../modules/audio/audioSession';
 
 export const MicRequest: React.FC<{ onGranted: () => void }> = ({ onGranted }) => {
   const { currentSong, setError, setAppState } = useAppStore();
@@ -8,7 +9,9 @@ export const MicRequest: React.FC<{ onGranted: () => void }> = ({ onGranted }) =
   const requestMic = async () => {
     setRequesting(true);
     try {
-      await navigator.mediaDevices.getUserMedia({ audio: true });
+      useAppStore.getState().updateSettings({ testMode: false });
+      // Start AudioContext in this tap — required on iOS Safari
+      await bootstrapAudioCapture();
       onGranted();
     } catch (error) {
       setError(`마이크 접근 실패: ${(error as Error).message}`);

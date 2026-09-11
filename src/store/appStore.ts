@@ -82,7 +82,8 @@ export const useAppStore = create<AppStore>((set, get) => ({
   selectSong: (song) => set({
     currentSong: song,
     currentNoteIndex: 0,
-    appState: 'requesting-mic'
+    appState: 'requesting-mic',
+    settings: { ...get().settings, testMode: false }
   }),
   
   startPractice: () => set({
@@ -110,7 +111,9 @@ export const useAppStore = create<AppStore>((set, get) => ({
     isListening: false,
     currentSong: null,
     currentNoteIndex: 0,
-    sustainProgress: 0
+    sustainProgress: 0,
+    detectedPitch: null,
+    settings: { ...get().settings, testMode: false }
   }),
   
   onPitchDetected: (frequency, clarity) => set({
