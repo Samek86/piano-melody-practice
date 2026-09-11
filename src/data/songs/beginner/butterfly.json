@@ -1,0 +1,25 @@
+{
+  "id": "butterfly",
+  "title": "Butterfly",
+  "titleKo": "나비야",
+  "origin": "korean",
+  "composer": "Traditional Korean",
+  "difficulty": "beginner",
+  "tempo": 110,
+  "timeSignature": [3, 4],
+  "key": "C",
+  "notes": [
+    { "pitch": 64, "duration": 4, "finger": 2 },
+    { "pitch": 64, "duration": 4, "finger": 2 },
+    { "pitch": 67, "duration": 4, "finger": 5 },
+    { "pitch": 69, "duration": 4, "finger": 1 },
+    { "pitch": 67, "duration": 4, "finger": 5 },
+    { "pitch": 64, "duration": 4, "finger": 2 },
+    { "pitch": 62, "duration": 4, "finger": 2 },
+    { "pitch": 60, "duration": 4, "finger": 1 },
+    { "pitch": 62, "duration": 4, "finger": 2 },
+    { "pitch": 64, "duration": 2, "finger": 2 }
+  ],
+  "tags": ["동요", "한국", "입문", "봄"],
+  "description": "한국 전통 동요. 3박자 리듬이 아름답습니다."
+}

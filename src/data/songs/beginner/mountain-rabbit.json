@@ -1,0 +1,27 @@
+{
+  "id": "mountain-rabbit",
+  "title": "Mountain Rabbit",
+  "titleKo": "산토끼",
+  "origin": "korean",
+  "composer": "Traditional Korean",
+  "difficulty": "beginner",
+  "tempo": 130,
+  "timeSignature": [4, 4],
+  "key": "C",
+  "notes": [
+    { "pitch": 60, "duration": 4, "finger": 1 },
+    { "pitch": 62, "duration": 4, "finger": 2 },
+    { "pitch": 64, "duration": 4, "finger": 3 },
+    { "pitch": 64, "duration": 4, "finger": 3 },
+    { "pitch": 62, "duration": 4, "finger": 2 },
+    { "pitch": 60, "duration": 4, "finger": 1 },
+    { "pitch": 62, "duration": 2, "finger": 2 },
+    { "pitch": 64, "duration": 4, "finger": 3 },
+    { "pitch": 64, "duration": 4, "finger": 3 },
+    { "pitch": 67, "duration": 4, "finger": 5 },
+    { "pitch": 67, "duration": 4, "finger": 5 },
+    { "pitch": 64, "duration": 2, "finger": 3 }
+  ],
+  "tags": ["동요", "한국", "입문", "동물"],
+  "description": "경쾌한 리듬의 한국 전통 동요입니다."
+}

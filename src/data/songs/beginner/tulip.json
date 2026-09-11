@@ -1,0 +1,23 @@
+{
+  "id": "tulip",
+  "title": "Tulip",
+  "titleKo": "튤립",
+  "titleJa": "チューリップ",
+  "origin": "japanese",
+  "composer": "Traditional Japanese",
+  "difficulty": "beginner",
+  "tempo": 100,
+  "timeSignature": [4, 4],
+  "key": "C",
+  "notes": [
+    { "pitch": 60, "duration": 4, "finger": 1 },
+    { "pitch": 62, "duration": 4, "finger": 2 },
+    { "pitch": 64, "duration": 4, "finger": 3 },
+    { "pitch": 60, "duration": 4, "finger": 1 },
+    { "pitch": 64, "duration": 4, "finger": 3 },
+    { "pitch": 64, "duration": 4, "finger": 3 },
+    { "pitch": 64, "duration": 2, "finger": 3 }
+  ],
+  "tags": ["동요", "일본", "입문", "꽃"],
+  "description": "일본의 대표적인 간단한 동요입니다."
+}

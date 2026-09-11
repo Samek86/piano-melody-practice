@@ -1,0 +1,27 @@
+{
+  "id": "donguri-korokoro",
+  "title": "Rolling Acorn",
+  "titleKo": "도토리 데굴데굴",
+  "titleJa": "どんぐりころころ",
+  "origin": "japanese",
+  "composer": "Traditional Japanese",
+  "difficulty": "beginner",
+  "tempo": 100,
+  "timeSignature": [2, 4],
+  "key": "C",
+  "notes": [
+    { "pitch": 67, "duration": 4, "finger": 5 },
+    { "pitch": 64, "duration": 4, "finger": 3 },
+    { "pitch": 62, "duration": 4, "finger": 2 },
+    { "pitch": 60, "duration": 4, "finger": 1 },
+    { "pitch": 62, "duration": 4, "finger": 2 },
+    { "pitch": 64, "duration": 4, "finger": 3 },
+    { "pitch": 67, "duration": 4, "finger": 5 },
+    { "pitch": 67, "duration": 4, "finger": 5 },
+    { "pitch": 65, "duration": 4, "finger": 4 },
+    { "pitch": 64, "duration": 4, "finger": 3 },
+    { "pitch": 60, "duration": 2, "finger": 1 }
+  ],
+  "tags": ["동요", "일본", "입문", "자연"],
+  "description": "일본의 유명한 도토리 노래입니다."
+}

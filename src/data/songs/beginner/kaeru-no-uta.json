@@ -1,0 +1,23 @@
+{
+  "id": "kaeru-no-uta",
+  "title": "Frog's Song",
+  "titleKo": "개구리 노래",
+  "titleJa": "かえるのうた",
+  "origin": "japanese",
+  "composer": "Traditional Japanese",
+  "difficulty": "beginner",
+  "tempo": 120,
+  "timeSignature": [4, 4],
+  "key": "C",
+  "notes": [
+    { "pitch": 60, "duration": 4, "finger": 1 },
+    { "pitch": 62, "duration": 4, "finger": 2 },
+    { "pitch": 64, "duration": 4, "finger": 3 },
+    { "pitch": 65, "duration": 4, "finger": 4 },
+    { "pitch": 64, "duration": 8, "finger": 3 },
+    { "pitch": 62, "duration": 8, "finger": 2 },
+    { "pitch": 60, "duration": 2, "finger": 1 }
+  ],
+  "tags": ["동요", "일본", "입문", "동물"],
+  "description": "일본의 간단한 개구리 노래입니다."
+}

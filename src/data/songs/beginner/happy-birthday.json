@@ -1,0 +1,27 @@
+{
+  "id": "happy-birthday",
+  "title": "Happy Birthday",
+  "titleKo": "생일 축하합니다",
+  "origin": "korean",
+  "composer": "Traditional",
+  "difficulty": "beginner",
+  "tempo": 110,
+  "timeSignature": [3, 4],
+  "key": "C",
+  "notes": [
+    { "pitch": 67, "duration": 8, "finger": 5 },
+    { "pitch": 67, "duration": 8, "finger": 5 },
+    { "pitch": 69, "duration": 4, "finger": 1 },
+    { "pitch": 67, "duration": 4, "finger": 5 },
+    { "pitch": 72, "duration": 4, "finger": 4 },
+    { "pitch": 71, "duration": 2, "finger": 3 },
+    { "pitch": 67, "duration": 8, "finger": 5 },
+    { "pitch": 67, "duration": 8, "finger": 5 },
+    { "pitch": 69, "duration": 4, "finger": 1 },
+    { "pitch": 67, "duration": 4, "finger": 5 },
+    { "pitch": 74, "duration": 4, "finger": 5 },
+    { "pitch": 72, "duration": 2, "finger": 4 }
+  ],
+  "tags": ["동요", "입문", "축하", "생일"],
+  "description": "실용적이고 자주 연주하는 곡입니다."
+}

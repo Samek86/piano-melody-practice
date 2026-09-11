@@ -1,0 +1,24 @@
+{
+  "id": "fox-fox",
+  "title": "Fox Fox",
+  "titleKo": "여우야 여우야",
+  "origin": "korean",
+  "composer": "Traditional Korean",
+  "difficulty": "beginner",
+  "tempo": 120,
+  "timeSignature": [4, 4],
+  "key": "C",
+  "notes": [
+    { "pitch": 67, "duration": 4, "finger": 5 },
+    { "pitch": 67, "duration": 4, "finger": 5 },
+    { "pitch": 69, "duration": 4, "finger": 1 },
+    { "pitch": 69, "duration": 4, "finger": 1 },
+    { "pitch": 67, "duration": 4, "finger": 5 },
+    { "pitch": 64, "duration": 4, "finger": 3 },
+    { "pitch": 60, "duration": 4, "finger": 1 },
+    { "pitch": 62, "duration": 4, "finger": 2 },
+    { "pitch": 64, "duration": 2, "finger": 3 }
+  ],
+  "tags": ["동요", "한국", "입문", "놀이"],
+  "description": "전통 놀이 노래입니다."
+}
