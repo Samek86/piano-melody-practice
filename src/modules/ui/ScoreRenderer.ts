@@ -133,22 +133,56 @@ export class ScoreRenderer {
       context.fillRect(0, 0, width, height);
       context.setFillStyle('#000000');
 
+      // Determine how many measures to show based on width
+      const isNarrow = width < 900;
+      const measuresPerWindow = isNarrow ? 1 : 2;
+
       const startMeasure = this.currentMeasureWindow;
-      const endMeasure = Math.min(startMeasure + 2, this.measures.length);
+      const endMeasure = Math.min(startMeasure + measuresPerWindow, this.measures.length);
       const measuresToRender = this.measures.slice(startMeasure, endMeasure);
 
       if (measuresToRender.length === 0) return;
 
-      const staveWidth = (width - 40) / measuresToRender.length;
+      // Calculate stave width with proper spacing for clef+time signature
+      const marginX = 20;
+      const clefTimeWidth = 80; // Extra space needed for clef + time signature on first stave
+      const availableWidth = width - 2 * marginX;
+      
+      let staveWidth: number;
+      if (measuresToRender.length === 1) {
+        // Single measure: give it most of the width, accounting for clef on first measure
+        staveWidth = startMeasure === 0 ? availableWidth - clefTimeWidth : availableWidth;
+      } else {
+        // Multiple measures: split width, first one gets extra for clef
+        staveWidth = availableWidth * 0.55; // We'll adjust per measure below
+      }
+
       const staveY = Math.max(60, height / 2 - 60);
 
       measuresToRender.forEach((measure, idx) => {
         const actualMeasureIdx = startMeasure + idx;
-        const x = 20 + idx * staveWidth;
         
-        const stave = new Stave(x, staveY, staveWidth);
+        let x: number;
+        let currentStaveWidth: number;
         
-        if (idx === 0) {
+        if (measuresToRender.length === 1) {
+          x = marginX;
+          currentStaveWidth = staveWidth;
+        } else {
+          // Two measures: first gets more width for clef
+          if (idx === 0) {
+            x = marginX;
+            currentStaveWidth = availableWidth * 0.55;
+          } else {
+            x = marginX + availableWidth * 0.55;
+            currentStaveWidth = availableWidth * 0.45;
+          }
+        }
+        
+        const stave = new Stave(x, staveY, currentStaveWidth);
+        
+        // Only show clef+time signature on the first measure of the entire song
+        if (actualMeasureIdx === 0) {
           stave.addClef('treble');
           stave.addTimeSignature(`${this.timeSignature[0]}/${this.timeSignature[1]}`);
         }
@@ -191,8 +225,26 @@ export class ScoreRenderer {
         voice.setStrict(false);
         voice.addTickables(vexNotes);
 
-        new Formatter().joinVoices([voice]).format([voice], staveWidth - 20);
+        // Give formatter adequate width
+        const formatterWidth = currentStaveWidth - (actualMeasureIdx === 0 ? clefTimeWidth : 30);
+        new Formatter().joinVoices([voice]).format([voice], formatterWidth);
         voice.draw(context, stave);
+
+        // Attach data-note-index attributes to each note's SVG group for proper mapping
+        const svg = this.container.querySelector('svg');
+        if (svg) {
+          const vfStaveNotes = svg.querySelectorAll('.vf-stavenote');
+          vexNotes.forEach((_, vexIdx) => {
+            const globalNoteIndex = measure.startIndex + vexIdx;
+            // Find the corresponding SVG element by reverse-indexing from rendered notes
+            // We need to count from the start of this render batch
+            const renderBatchOffset = measuresToRender.slice(0, idx).reduce((sum, m) => sum + m.notes.length, 0);
+            const svgElement = vfStaveNotes[renderBatchOffset + vexIdx];
+            if (svgElement) {
+              (svgElement as SVGElement).setAttribute('data-note-index', String(globalNoteIndex));
+            }
+          });
+        }
       });
 
       this.applyStateColors();
@@ -207,23 +259,18 @@ export class ScoreRenderer {
     const svg = this.container.querySelector('svg');
     if (!svg) return;
 
-    const noteHeads = svg.querySelectorAll('.vf-notehead');
-    const startMeasure = this.currentMeasureWindow;
-    const endMeasure = Math.min(startMeasure + 2, this.measures.length);
-
-    let vexNoteIndex = 0;
-    for (let m = startMeasure; m < endMeasure; m++) {
-      const measure = this.measures[m];
-      for (let i = 0; i < measure.notes.length; i++) {
-        const globalIndex = measure.startIndex + i;
-        const noteHead = noteHeads[vexNoteIndex] as SVGElement;
-        
-        if (noteHead && globalIndex < this.noteStates.length) {
+    const staveNotes = svg.querySelectorAll('.vf-stavenote[data-note-index]');
+    
+    staveNotes.forEach((staveNote) => {
+      const globalIndex = parseInt((staveNote as SVGElement).getAttribute('data-note-index') || '-1', 10);
+      
+      if (globalIndex >= 0 && globalIndex < this.noteStates.length) {
+        const noteHead = staveNote.querySelector('.vf-notehead') as SVGElement;
+        if (noteHead) {
           this.applyNoteStateStyle(noteHead, this.noteStates[globalIndex].state);
         }
-        vexNoteIndex++;
       }
-    }
+    });
   }
 
   private applyNoteStateStyle(noteHead: SVGElement, state: NoteState): void {
@@ -255,9 +302,12 @@ export class ScoreRenderer {
     if (!noteInfo) return;
 
     const startMeasure = this.currentMeasureWindow;
-    const measureInWindow = noteInfo.measureIdx - startMeasure;
+    const isNarrow = this.config.width < 900;
+    const measuresPerWindow = isNarrow ? 1 : 2;
+    const endMeasure = Math.min(startMeasure + measuresPerWindow, this.measures.length);
     
-    if (measureInWindow < 0 || measureInWindow >= 2) {
+    // Check if note's measure is in current window
+    if (noteInfo.measureIdx < startMeasure || noteInfo.measureIdx >= endMeasure) {
       this.updateMeasureWindow(index);
       return;
     }
@@ -265,16 +315,11 @@ export class ScoreRenderer {
     const svg = this.container.querySelector('svg');
     if (!svg) return;
 
-    const noteHeads = svg.querySelectorAll('.vf-notehead');
-    
-    let noteOffset = 0;
-    for (let i = startMeasure; i < noteInfo.measureIdx; i++) {
-      noteOffset += this.measures[i].notes.length;
-    }
-    
-    const targetNoteIndex = noteOffset + noteInfo.noteIdx;
-    const noteHead = noteHeads[targetNoteIndex] as SVGElement;
-    
+    // Use data-note-index attribute to find the correct note
+    const staveNote = svg.querySelector(`.vf-stavenote[data-note-index="${index}"]`);
+    if (!staveNote) return;
+
+    const noteHead = staveNote.querySelector('.vf-notehead') as SVGElement;
     if (!noteHead) return;
 
     this.applyNoteStateStyle(noteHead, this.noteStates[index].state);
@@ -299,22 +344,11 @@ export class ScoreRenderer {
     const svg = this.container.querySelector('svg');
     if (!svg) return;
 
-    const noteInfo = this.noteToVexIndexMap.get(index);
-    if (!noteInfo) return;
+    // Use data-note-index attribute to find the correct note
+    const staveNote = svg.querySelector(`.vf-stavenote[data-note-index="${index}"]`);
+    if (!staveNote) return;
 
-    const startMeasure = this.currentMeasureWindow;
-    const noteHeads = svg.querySelectorAll('.vf-notehead');
-    
-    let noteOffset = 0;
-    for (let i = startMeasure; i < noteInfo.measureIdx; i++) {
-      if (i >= 0 && i < this.measures.length) {
-        noteOffset += this.measures[i].notes.length;
-      }
-    }
-    
-    const targetNoteIndex = noteOffset + noteInfo.noteIdx;
-    const noteHead = noteHeads[targetNoteIndex] as SVGElement;
-    
+    const noteHead = staveNote.querySelector('.vf-notehead') as SVGElement;
     if (noteHead) {
       this.applyNoteStateStyle(noteHead, this.noteStates[index].state);
       noteHead.style.transform = 'scale(1)';
@@ -326,7 +360,8 @@ export class ScoreRenderer {
     if (!noteInfo) {
       const measureIndex = this.noteStates[currentNoteIndex]?.measureIndex;
       if (measureIndex !== undefined && measureIndex >= 0) {
-        const newWindow = Math.floor(measureIndex / 2) * 2;
+        // Sliding window: anchor on current measure
+        const newWindow = measureIndex;
         if (newWindow !== this.currentMeasureWindow) {
           this.currentMeasureWindow = newWindow;
           this.render();
@@ -335,7 +370,8 @@ export class ScoreRenderer {
       return;
     }
 
-    const newWindow = Math.floor(noteInfo.measureIdx / 2) * 2;
+    // Sliding window: anchor on current measure
+    const newWindow = noteInfo.measureIdx;
     
     if (newWindow !== this.currentMeasureWindow) {
       this.currentMeasureWindow = newWindow;
