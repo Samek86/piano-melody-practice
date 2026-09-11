@@ -144,7 +144,7 @@ export const PracticeScreen: React.FC = () => {
           sampleRate: actualSampleRate,
           threshold: 0.5,
           analysisInterval: 50,
-          noiseGate: -70
+          noiseGate: -55
         });
 
         if (!cancelled) startAudioLoop();
@@ -388,7 +388,7 @@ export const PracticeScreen: React.FC = () => {
         <div>
           <h2 style={{ margin: 0 }}>{currentSong.titleKo}</h2>
           <div style={{ color: '#718096', fontSize: '0.9rem' }}>
-            음표 {currentNoteIndex + 1} / {currentSong.notes.length} · whitefix3
+            음표 {currentNoteIndex + 1} / {currentSong.notes.length} · pitchfix1
           </div>
         </div>
         <div className="controls">
@@ -435,9 +435,9 @@ export const PracticeScreen: React.FC = () => {
         </div>
 
         <div className="pitch-indicator">
-          {detectedPitch && Number.isFinite(detectedPitch) && detectedPitch > 0 ? (
+          {detectedPitch && Number.isFinite(detectedPitch) && detectedPitch > 0 && Number.isFinite(frequencyToMidi(detectedPitch)) ? (
             <>
-              🎵 감지: {midiToNoteName(frequencyToMidi(detectedPitch))} 
+              🎵 감지: {midiToNoteName(frequencyToMidi(detectedPitch))}
               {currentNote && ` (목표: ${midiToNoteName(currentNote.pitch)})`}
             </>
           ) : (
