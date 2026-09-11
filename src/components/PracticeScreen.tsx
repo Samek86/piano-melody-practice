@@ -1,7 +1,8 @@
-import React from 'react';
+import React, { useLayoutEffect } from 'react';
 import { useAppStore } from '../store/appStore';
 import { ScoreRenderer } from '../modules/ui/ScoreRenderer';
 import { AudioCapture } from '../modules/audio/AudioCapture';
+import { takeBootstrappedAudioCapture } from '../modules/audio/audioSession';
 import { PitchDetector } from '../modules/audio/PitchDetector';
 import { NoteMatcher } from '../modules/game/NoteMatcher';
 import { SoftKeyboard } from './SoftKeyboard';
@@ -28,15 +29,34 @@ export const PracticeScreen: React.FC = () => {
   const pitchDetectorRef = React.useRef<PitchDetector | null>(null);
   const noteMatcherRef = React.useRef<NoteMatcher | null>(null);
   const animationFrameRef = React.useRef<number | null>(null);
-  const [renderError, setRenderError] = React.useState<string | null>(null);
-
+  const appStateRef = React.useRef(appState);
   React.useEffect(() => {
+    appStateRef.current = appState;
+  }, [appState]);
+  const [renderError, setRenderError] = React.useState<string | null>(null);
+  const [needsMicUnlock, setNeedsMicUnlock] = React.useState(false);
+  const [isScoreReady, setIsScoreReady] = React.useState(false);
+  const lastPitchPublishRef = React.useRef(0);
+  const lastPublishedFreqRef = React.useRef<number | null>(null);
+  const currentNoteIndexRef = React.useRef(currentNoteIndex);
+  React.useEffect(() => {
+    currentNoteIndexRef.current = currentNoteIndex;
+  }, [currentNoteIndex]);
+
+  useLayoutEffect(() => {
     if (!currentSong || !scoreContainerRef.current) return;
 
+    setIsScoreReady(false);
     const container = scoreContainerRef.current;
+    let tries = 0;
 
     const initRenderer = () => {
       if (container.clientWidth === 0 || container.clientHeight === 0) {
+        tries += 1;
+        if (tries > 60) {
+          setRenderError('악보 영역 크기를 잡지 못했습니다. 화면을 한번 탭하거나 회전해 보세요.');
+          return;
+        }
         requestAnimationFrame(initRenderer);
         return;
       }
@@ -56,9 +76,11 @@ export const PracticeScreen: React.FC = () => {
 
         scoreRendererRef.current.highlightNote(0, 'blue');
         setRenderError(null);
+        setIsScoreReady(true);
       } catch (error) {
         console.error('Failed to initialize score renderer:', error);
         setRenderError('악보를 로드하는 중 오류가 발생했습니다.');
+        setIsScoreReady(false);
       }
     };
 
@@ -88,9 +110,21 @@ export const PracticeScreen: React.FC = () => {
     const initializeAudio = async () => {
       if (!settings.testMode) {
         try {
-          // Initialize AudioCapture first
-          audioCaptureRef.current = new AudioCapture();
-          await audioCaptureRef.current.initialize();
+          // Prefer capture started in the mic-button tap (iOS AudioContext)
+          const bootstrapped = takeBootstrappedAudioCapture();
+          if (bootstrapped) {
+            audioCaptureRef.current = bootstrapped;
+          } else {
+            audioCaptureRef.current = new AudioCapture();
+            await audioCaptureRef.current.initialize();
+            await audioCaptureRef.current.resume();
+          }
+          if (!audioCaptureRef.current.isReady) {
+            throw new Error('마이크 초기화가 완료되지 않았습니다');
+          }
+          if (audioCaptureRef.current.state === 'suspended') {
+            setNeedsMicUnlock(true);
+          }
 
           // Get the actual device sample rate (iOS often 48000, desktop often 44100)
           const actualSampleRate = audioCaptureRef.current.getSampleRate();
@@ -101,7 +135,7 @@ export const PracticeScreen: React.FC = () => {
             sampleRate: actualSampleRate,
             threshold: 0.5,  // Relaxed from 0.9 for better real piano detection
             analysisInterval: 50,
-            noiseGate: -50   // Relaxed from -60 for better sensitivity
+            noiseGate: -70   // Lower = more sensitive to quiet piano via phone mic
           });
 
           // Start audio loop after initialization is complete
@@ -121,14 +155,18 @@ export const PracticeScreen: React.FC = () => {
     // Set target note
     noteMatcherRef.current.setTargetNote(currentSong.notes[0].pitch);
 
-    // Initialize audio asynchronously
-    initializeAudio();
+    // Let the score paint first, then start mic (avoids blank first frame on iOS)
+    const deferAudio = window.setTimeout(() => { void initializeAudio(); }, 50);
 
     return () => {
+      window.clearTimeout(deferAudio);
       if (animationFrameRef.current) {
         cancelAnimationFrame(animationFrameRef.current);
+        animationFrameRef.current = null;
       }
       audioCaptureRef.current?.cleanup();
+      audioCaptureRef.current = null;
+      pitchDetectorRef.current = null;
     };
   }, [currentSong, settings.testMode]);
 
@@ -149,34 +187,80 @@ export const PracticeScreen: React.FC = () => {
         return;
       }
 
-      const buffer = audioCaptureRef.current.getAudioBuffer();
-      const result = pitchDetectorRef.current.detect(buffer);
-
-      if (result) {
-        onPitchDetected(result.frequency, result.clarity);
-
-        if (result.frequency) {
-          const matchResult = noteMatcherRef.current.checkMatch(result.frequency);
-
-          if (matchResult.matched) {
-            scoreRendererRef.current?.highlightNote(currentNoteIndex, 'green');
-            onNoteMatched();
-          } else if (matchResult.centsOff && Math.abs(matchResult.centsOff) > settings.toleranceCents) {
-            // Wrong note - briefly flash red
-            scoreRendererRef.current?.highlightNote(currentNoteIndex, 'red');
-            setTimeout(() => {
-              scoreRendererRef.current?.highlightNote(currentNoteIndex, 'blue');
-            }, 300);
-          }
-        }
+      if (audioCaptureRef.current.state === 'suspended') {
+        void audioCaptureRef.current.resume();
+        animationFrameRef.current = requestAnimationFrame(loop);
+        return;
       }
 
-      if (appState === 'practice') {
+      try {
+        if (!audioCaptureRef.current.isReady) {
+          if (appStateRef.current === 'practice') {
+            animationFrameRef.current = requestAnimationFrame(loop);
+          }
+          return;
+        }
+        const buffer = audioCaptureRef.current.getAudioBuffer();
+        if (!buffer) {
+          if (appStateRef.current === 'practice') {
+            animationFrameRef.current = requestAnimationFrame(loop);
+          }
+          return;
+        }
+        const result = pitchDetectorRef.current.detect(buffer);
+
+        if (result) {
+          const now = Date.now();
+          const freqChanged =
+            (result.frequency == null && lastPublishedFreqRef.current != null) ||
+            (result.frequency != null &&
+              (lastPublishedFreqRef.current == null ||
+                Math.abs(result.frequency - lastPublishedFreqRef.current) > 1));
+          if (freqChanged || now - lastPitchPublishRef.current > 120) {
+            lastPitchPublishRef.current = now;
+            lastPublishedFreqRef.current = result.frequency;
+            onPitchDetected(result.frequency, result.clarity);
+          }
+
+          if (result.frequency) {
+            const matchResult = noteMatcherRef.current.checkMatch(result.frequency);
+            const noteIdx = currentNoteIndexRef.current;
+
+            if (matchResult.matched) {
+              scoreRendererRef.current?.highlightNote(noteIdx, 'green');
+              onNoteMatched();
+            } else if (
+              matchResult.centsOff != null &&
+              Math.abs(matchResult.centsOff) > settings.toleranceCents
+            ) {
+              scoreRendererRef.current?.highlightNote(noteIdx, 'red');
+              setTimeout(() => {
+                scoreRendererRef.current?.highlightNote(noteIdx, 'blue');
+              }, 300);
+            }
+          }
+        }
+      } catch (err) {
+        console.error('[PracticeScreen] audio loop error:', err);
+      }
+
+      if (appStateRef.current === 'practice') {
         animationFrameRef.current = requestAnimationFrame(loop);
       }
     };
 
     loop();
+  };
+
+  const unlockMic = async () => {
+    if (!audioCaptureRef.current) return;
+    await audioCaptureRef.current.resume();
+    if (audioCaptureRef.current.state !== 'suspended') {
+      setNeedsMicUnlock(false);
+      if (!animationFrameRef.current && appStateRef.current === 'practice') {
+        startAudioLoop();
+      }
+    }
   };
 
   const handleKeyboardNote = (midiNote: number) => {
@@ -199,14 +283,44 @@ export const PracticeScreen: React.FC = () => {
     }
   };
 
-  if (!currentSong) return null;
+  if (!currentSong) {
+    return (
+      <div className="practice-container">
+        <div className="practice-header">
+          <h2 style={{ margin: 0 }}>연습</h2>
+          <button className="btn btn-danger" onClick={exitPractice}>✕ 나가기</button>
+        </div>
+        <div style={{ padding: 24, textAlign: 'center' }}>곡 정보가 없습니다. 다시 선택해 주세요.</div>
+      </div>
+    );
+  }
 
   const progress = ((currentNoteIndex / currentSong.notes.length) * 100);
   const currentNote = currentSong.notes[currentNoteIndex];
 
   if (renderError) {
     return (
-      <div className="practice-container">
+      <div className="practice-container" onPointerDown={needsMicUnlock ? () => { void unlockMic(); } : undefined}>
+      {needsMicUnlock && (
+        <div
+          style={{
+            position: 'absolute',
+            inset: 0,
+            zIndex: 20,
+            background: 'rgba(26,32,44,0.72)',
+            color: '#fff',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            textAlign: 'center',
+            padding: 24,
+            fontSize: '1.1rem',
+            fontWeight: 600
+          }}
+        >
+          마이크를 켜려면 화면을 탭하세요
+        </div>
+      )}
         <div className="practice-header">
           <div>
             <h2 style={{ margin: 0 }}>{currentSong.titleKo}</h2>
@@ -240,7 +354,27 @@ export const PracticeScreen: React.FC = () => {
   }
 
   return (
-    <div className="practice-container">
+    <div className="practice-container" onPointerDown={needsMicUnlock ? () => { void unlockMic(); } : undefined}>
+      {needsMicUnlock && (
+        <div
+          style={{
+            position: 'absolute',
+            inset: 0,
+            zIndex: 20,
+            background: 'rgba(26,32,44,0.72)',
+            color: '#fff',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            textAlign: 'center',
+            padding: 24,
+            fontSize: '1.1rem',
+            fontWeight: 600
+          }}
+        >
+          마이크를 켜려면 화면을 탭하세요
+        </div>
+      )}
       <div className="practice-header">
         <div>
           <h2 style={{ margin: 0 }}>{currentSong.titleKo}</h2>
@@ -265,7 +399,13 @@ export const PracticeScreen: React.FC = () => {
         </div>
       </div>
 
-      <div className="score-container" ref={scoreContainerRef} />
+      <div className="score-container" ref={scoreContainerRef}>
+        {!isScoreReady && !renderError && (
+          <div style={{ color: '#4a5568', textAlign: 'center', padding: 16 }}>
+            악보 준비 중…
+          </div>
+        )}
+      </div>
 
       <div className="practice-footer">
         <div className="progress-bar">
@@ -273,7 +413,7 @@ export const PracticeScreen: React.FC = () => {
         </div>
 
         <div className="pitch-indicator">
-          {detectedPitch ? (
+          {detectedPitch && Number.isFinite(detectedPitch) && detectedPitch > 0 ? (
             <>
               🎵 감지: {midiToNoteName(frequencyToMidi(detectedPitch))} 
               {currentNote && ` (목표: ${midiToNoteName(currentNote.pitch)})`}

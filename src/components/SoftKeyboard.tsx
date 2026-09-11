@@ -38,30 +38,29 @@ export const SoftKeyboard: React.FC<SoftKeyboardProps> = ({ onNotePlay }) => {
   }, [pressedKey]);
 
   const playTone = (midiNote: number) => {
-    if (!audioContextRef.current) return;
-
-    const ctx = audioContextRef.current;
-    const freq = midiToFrequency(midiNote);
-
-    const oscillator = ctx.createOscillator();
-    const gainNode = ctx.createGain();
-
-    oscillator.type = 'sine';
-    oscillator.frequency.value = freq;
-
-    gainNode.gain.setValueAtTime(0.3, ctx.currentTime);
-    gainNode.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.5);
-
-    oscillator.connect(gainNode);
-    gainNode.connect(ctx.destination);
-
-    oscillator.start();
-    oscillator.stop(ctx.currentTime + 0.5);
-
+    // Always notify practice logic first — audio may fail (autoplay / headless).
     setPressedKey(midiNote);
     onNotePlay(midiNote);
-
     setTimeout(() => setPressedKey(null), 200);
+
+    const ctx = audioContextRef.current;
+    if (!ctx) return;
+    try {
+      if (ctx.state === 'suspended') void ctx.resume();
+      const freq = midiToFrequency(midiNote);
+      const oscillator = ctx.createOscillator();
+      const gainNode = ctx.createGain();
+      oscillator.type = 'sine';
+      oscillator.frequency.value = freq;
+      gainNode.gain.setValueAtTime(0.3, ctx.currentTime);
+      gainNode.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.5);
+      oscillator.connect(gainNode);
+      gainNode.connect(ctx.destination);
+      oscillator.start();
+      oscillator.stop(ctx.currentTime + 0.5);
+    } catch {
+      // ignore audio errors
+    }
   };
 
   return (
