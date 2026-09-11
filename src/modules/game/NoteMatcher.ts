@@ -6,6 +6,7 @@ export interface NoteMatchingConfig {
   sustainWindowMs: number;
   debounceMs: number;
   a4Hz?: number;
+  silenceThresholdMs?: number; // sustained silence duration to clear release gate
 }
 
 export class NoteMatcher {
@@ -15,6 +16,7 @@ export class NoteMatcher {
   private lastMatchTime: number = 0;
   private lastMatchedPitchClass: number | null = null;
   private requiresRelease: boolean = false;
+  private silenceStartTime: number | null = null;
 
   constructor(config: NoteMatchingConfig) {
     this.config = config;
@@ -23,8 +25,13 @@ export class NoteMatcher {
   setTargetNote(midiNote: number): void {
     this.currentTargetNote = midiNote;
     this.matchStartTime = null;
-    // Clear release requirement when target changes
-    this.requiresRelease = false;
+    // Only clear release requirement when the new target's pitch class differs
+    // from the last matched pitch class. For repeated identical notes (C-C-C),
+    // we must keep the release gate active.
+    const newPitchClass = this.getPitchClass(midiNote);
+    if (this.lastMatchedPitchClass !== null && newPitchClass !== this.lastMatchedPitchClass) {
+      this.requiresRelease = false;
+    }
   }
 
   private getPitchClass(midiNote: number): number {
@@ -33,6 +40,24 @@ export class NoteMatcher {
 
   private isPitchClassMatch(detected: number, target: number): boolean {
     return this.getPitchClass(detected) === this.getPitchClass(target);
+  }
+
+  notifySilence(): void {
+    const now = Date.now();
+    const silenceThreshold = this.config.silenceThresholdMs ?? 80;
+
+    if (!this.silenceStartTime) {
+      this.silenceStartTime = now;
+    }
+
+    const silenceDuration = now - this.silenceStartTime;
+    
+    // Clear release gate after sustained silence
+    if (silenceDuration >= silenceThreshold) {
+      this.requiresRelease = false;
+    }
+
+    this.matchStartTime = null;
   }
 
   checkMatch(detectedFrequency: number | null): MatchResult {
@@ -45,16 +70,19 @@ export class NoteMatcher {
 
     if (!this.currentTargetNote) {
       this.matchStartTime = null;
+      this.silenceStartTime = null;
       this.requiresRelease = false;
       return this.createResult(false, 0);
     }
 
-    // If no frequency detected (silence), clear release requirement
+    // If no frequency detected (silence), track it for release gate clearing
     if (!detectedFrequency) {
-      this.matchStartTime = null;
-      this.requiresRelease = false;
+      this.notifySilence();
       return this.createResult(false, 0);
     }
+
+    // Pitch detected - reset silence tracking
+    this.silenceStartTime = null;
 
     // Convert detected frequency to MIDI for pitch class comparison
     const a4 = this.config.a4Hz ?? 440;
@@ -172,5 +200,6 @@ export class NoteMatcher {
     this.lastMatchTime = 0;
     this.lastMatchedPitchClass = null;
     this.requiresRelease = false;
+    this.silenceStartTime = null;
   }
 }

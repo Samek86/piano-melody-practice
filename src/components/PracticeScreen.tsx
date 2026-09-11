@@ -165,7 +165,8 @@ export const PracticeScreen: React.FC = () => {
       toleranceCents: settings.toleranceCents,
       sustainWindowMs: settings.sustainWindowMs,
       debounceMs: 100,
-      a4Hz: settings.a4Hz
+      a4Hz: settings.a4Hz,
+      silenceThresholdMs: 80 // sustained silence duration to clear release gate
     });
     noteMatcherRef.current.setTargetNote(currentSong.notes[0].pitch);
 
@@ -252,22 +253,22 @@ export const PracticeScreen: React.FC = () => {
           onPitchDetected(frequency, clarity);
         }
 
-        if (frequency) {
-          const matchResult = noteMatcherRef.current.checkMatch(frequency);
-          const noteIdx = currentNoteIndexRef.current;
+        // Always call checkMatch to handle both pitch detection and silence
+        const matchResult = noteMatcherRef.current.checkMatch(frequency);
+        const noteIdx = currentNoteIndexRef.current;
 
-          if (matchResult.matched) {
-            scoreRendererRef.current?.highlightNote(noteIdx, 'green');
-            onNoteMatched();
-          } else if (
-            matchResult.centsOff != null &&
-            Math.abs(matchResult.centsOff) > settings.toleranceCents
-          ) {
-            scoreRendererRef.current?.highlightNote(noteIdx, 'red');
-            setTimeout(() => {
-              scoreRendererRef.current?.highlightNote(noteIdx, 'blue');
-            }, 300);
-          }
+        if (matchResult.matched) {
+          scoreRendererRef.current?.highlightNote(noteIdx, 'green');
+          onNoteMatched();
+        } else if (
+          frequency &&
+          matchResult.centsOff != null &&
+          Math.abs(matchResult.centsOff) > settings.toleranceCents
+        ) {
+          scoreRendererRef.current?.highlightNote(noteIdx, 'red');
+          setTimeout(() => {
+            scoreRendererRef.current?.highlightNote(noteIdx, 'blue');
+          }, 300);
         }
       } catch (err) {
         console.error('[PracticeScreen] audio loop error:', err);
