@@ -64,7 +64,20 @@ export const PracticeScreen: React.FC = () => {
 
     initRenderer();
 
+    // ResizeObserver to handle orientation changes and container resizing
+    const resizeObserver = new ResizeObserver(() => {
+      if (container.clientWidth > 0 && container.clientHeight > 0 && scoreRendererRef.current) {
+        scoreRendererRef.current.updateConfig({
+          width: container.clientWidth,
+          height: container.clientHeight
+        });
+      }
+    });
+
+    resizeObserver.observe(container);
+
     return () => {
+      resizeObserver.disconnect();
       scoreRendererRef.current?.destroy();
     };
   }, [currentSong, settings.showNoteNames, settings.showFingerNumbers]);
