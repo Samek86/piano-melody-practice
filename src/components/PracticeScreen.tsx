@@ -36,9 +36,12 @@ export const PracticeScreen: React.FC = () => {
   const [renderError, setRenderError] = React.useState<string | null>(null);
   const [needsMicUnlock, setNeedsMicUnlock] = React.useState(false);
   const [isScoreReady, setIsScoreReady] = React.useState(false);
+  const [micLevel, setMicLevel] = React.useState(0);
+  const [micDebug, setMicDebug] = React.useState('mic…');
   const lastPitchPublishRef = React.useRef(0);
   const lastPublishedFreqRef = React.useRef<number | null>(null);
   const currentNoteIndexRef = React.useRef(currentNoteIndex);
+  const lastMicUiRef = React.useRef(0);
   React.useEffect(() => {
     currentNoteIndexRef.current = currentNoteIndex;
   }, [currentNoteIndex]);
@@ -211,44 +214,58 @@ export const PracticeScreen: React.FC = () => {
           }
           return;
         }
+
+        const level = audioCaptureRef.current.getLevel();
+        const spectrum = audioCaptureRef.current.getSpectrumPeak();
+        const levelPct = Math.min(100, Math.round(level.peak * 400));
+
         const buffer = audioCaptureRef.current.getAudioBuffer();
-        if (!buffer) {
-          if (appStateRef.current === 'practice') {
-            animationFrameRef.current = requestAnimationFrame(loop);
-          }
-          return;
+        const yinResult = buffer ? pitchDetectorRef.current.detect(buffer) : null;
+
+        // Prefer in-range YIN; otherwise FFT peak (more reliable on phone mics)
+        let frequency: number | null = yinResult?.frequency ?? null;
+        let clarity = yinResult?.clarity ?? 0;
+        let source = frequency ? 'yin' : 'none';
+        if (frequency == null && spectrum.frequency != null) {
+          frequency = spectrum.frequency;
+          clarity = 0.7;
+          source = 'fft';
         }
-        const result = pitchDetectorRef.current.detect(buffer);
 
-        if (result) {
-          const now = Date.now();
-          const freqChanged =
-            (result.frequency == null && lastPublishedFreqRef.current != null) ||
-            (result.frequency != null &&
-              (lastPublishedFreqRef.current == null ||
-                Math.abs(result.frequency - lastPublishedFreqRef.current) > 1));
-          if (freqChanged || now - lastPitchPublishRef.current > 120) {
-            lastPitchPublishRef.current = now;
-            lastPublishedFreqRef.current = result.frequency;
-            onPitchDetected(result.frequency, result.clarity);
-          }
+        const now = Date.now();
+        if (now - lastMicUiRef.current > 80) {
+          lastMicUiRef.current = now;
+          setMicLevel(levelPct);
+          setMicDebug(
+            `${audioCaptureRef.current.state} pk=${level.peak.toFixed(3)} db=${spectrum.peakDb.toFixed(0)} ${source}${frequency ? ` ${frequency.toFixed(0)}Hz` : ''}`
+          );
+        }
+        const freqChanged =
+          (frequency == null && lastPublishedFreqRef.current != null) ||
+          (frequency != null &&
+            (lastPublishedFreqRef.current == null ||
+              Math.abs(frequency - lastPublishedFreqRef.current) > 1));
+        if (freqChanged || now - lastPitchPublishRef.current > 100) {
+          lastPitchPublishRef.current = now;
+          lastPublishedFreqRef.current = frequency;
+          onPitchDetected(frequency, clarity);
+        }
 
-          if (result.frequency) {
-            const matchResult = noteMatcherRef.current.checkMatch(result.frequency);
-            const noteIdx = currentNoteIndexRef.current;
+        if (frequency) {
+          const matchResult = noteMatcherRef.current.checkMatch(frequency);
+          const noteIdx = currentNoteIndexRef.current;
 
-            if (matchResult.matched) {
-              scoreRendererRef.current?.highlightNote(noteIdx, 'green');
-              onNoteMatched();
-            } else if (
-              matchResult.centsOff != null &&
-              Math.abs(matchResult.centsOff) > settings.toleranceCents
-            ) {
-              scoreRendererRef.current?.highlightNote(noteIdx, 'red');
-              setTimeout(() => {
-                scoreRendererRef.current?.highlightNote(noteIdx, 'blue');
-              }, 300);
-            }
+          if (matchResult.matched) {
+            scoreRendererRef.current?.highlightNote(noteIdx, 'green');
+            onNoteMatched();
+          } else if (
+            matchResult.centsOff != null &&
+            Math.abs(matchResult.centsOff) > settings.toleranceCents
+          ) {
+            scoreRendererRef.current?.highlightNote(noteIdx, 'red');
+            setTimeout(() => {
+              scoreRendererRef.current?.highlightNote(noteIdx, 'blue');
+            }, 300);
           }
         }
       } catch (err) {
@@ -390,7 +407,7 @@ export const PracticeScreen: React.FC = () => {
         <div>
           <h2 style={{ margin: 0 }}>{currentSong.titleKo}</h2>
           <div style={{ color: '#718096', fontSize: '0.9rem' }}>
-            음표 {currentNoteIndex + 1} / {currentSong.notes.length} · pitchfix2
+            음표 {currentNoteIndex + 1} / {currentSong.notes.length} · pitchfix3
           </div>
         </div>
         <div className="controls">
@@ -449,6 +466,14 @@ export const PracticeScreen: React.FC = () => {
             </>
           )}
         </div>
+        {!settings.testMode && (
+          <div style={{ marginTop: 4 }}>
+            <div style={{ height: 8, background: '#e2e8f0', borderRadius: 4, overflow: 'hidden' }}>
+              <div style={{ width: `${micLevel}%`, height: '100%', background: micLevel > 8 ? '#48bb78' : '#a0aec0' }} />
+            </div>
+            <div style={{ fontSize: 10, color: '#718096', marginTop: 2 }}>{micDebug}</div>
+          </div>
+        )}
 
         {settings.testMode && (
           <SoftKeyboard onNotePlay={handleKeyboardNote} />

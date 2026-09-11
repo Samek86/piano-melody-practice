@@ -4,6 +4,7 @@ export class AudioCapture {
   private mediaStream: MediaStream | null = null;
   private analyser: AnalyserNode | null = null;
   private sourceNode: MediaStreamAudioSourceNode | null = null;
+  private freqBuffer: Float32Array | null = null;
 
   get isReady(): boolean {
     return !!(this.audioContext && this.analyser);
@@ -11,36 +12,33 @@ export class AudioCapture {
 
   async initialize(): Promise<void> {
     try {
-      // Request microphone access (no sampleRate constraint - use device default)
-      // iOS typically runs at 48000, Android/desktop often 44100
+      // Prefer the voice/unprocessed mic; AGC helps quiet piano through phone mics
       this.mediaStream = await navigator.mediaDevices.getUserMedia({
         audio: {
           echoCancellation: false,
           noiseSuppression: false,
-          autoGainControl: false
+          autoGainControl: true,
+          channelCount: 1
         }
       });
 
-      // Create AudioContext with default sample rate (device-dependent)
       this.audioContext = new AudioContext();
-
-      // iOS: resume while we still have the user-gesture chain when possible
       if (this.audioContext.state === 'suspended') {
         await this.audioContext.resume();
       }
 
       this.sourceNode = this.audioContext.createMediaStreamSource(this.mediaStream);
-
       console.log(
-        `[AudioCapture] Initialized with sample rate: ${this.audioContext.sampleRate} Hz, state: ${this.audioContext.state}`
+        `[AudioCapture] Initialized sampleRate=${this.audioContext.sampleRate} state=${this.audioContext.state}`
       );
 
-      // Set up AnalyserNode
       this.analyser = this.audioContext.createAnalyser();
-      this.analyser.fftSize = 4096; // longer window helps low piano notes
-      this.analyser.smoothingTimeConstant = 0.8;
-
+      this.analyser.fftSize = 8192;
+      this.analyser.smoothingTimeConstant = 0.3;
+      this.analyser.minDecibels = -100;
+      this.analyser.maxDecibels = -10;
       this.sourceNode.connect(this.analyser);
+      this.freqBuffer = new Float32Array(this.analyser.frequencyBinCount);
     } catch (error) {
       this.cleanup();
       throw new Error(`마이크 접근 실패: ${(error as Error).message}`);
@@ -48,7 +46,6 @@ export class AudioCapture {
   }
 
   getSampleRate(): number {
-    // Never throw — callers may race with cleanup / async init
     return this.audioContext?.sampleRate ?? 44100;
   }
 
@@ -57,6 +54,49 @@ export class AudioCapture {
     const buffer = new Float32Array(this.analyser.fftSize);
     this.analyser.getFloatTimeDomainData(buffer);
     return buffer;
+  }
+
+  /** Peak magnitude in dB and dominant frequency via FFT (robust fallback). */
+  getSpectrumPeak(): { peakDb: number; frequency: number | null } {
+    if (!this.analyser || !this.freqBuffer || !this.audioContext) {
+      return { peakDb: -Infinity, frequency: null };
+    }
+    // Cast needed across TS lib versions for Float32Array generics
+    this.analyser.getFloatFrequencyData(this.freqBuffer as unknown as Float32Array<ArrayBuffer>);
+
+    const sampleRate = this.audioContext.sampleRate;
+    const binHz = sampleRate / this.analyser.fftSize;
+    const minBin = Math.max(1, Math.floor(55 / binHz));
+    const maxBin = Math.min(this.freqBuffer.length - 1, Math.floor(2000 / binHz));
+
+    let bestBin = -1;
+    let bestDb = -Infinity;
+    for (let i = minBin; i <= maxBin; i++) {
+      const db = this.freqBuffer[i];
+      if (db > bestDb) {
+        bestDb = db;
+        bestBin = i;
+      }
+    }
+
+    if (bestBin < 0 || bestDb < -75) {
+      return { peakDb: bestDb, frequency: null };
+    }
+    return { peakDb: bestDb, frequency: bestBin * binHz };
+  }
+
+  getLevel(): { rms: number; peak: number } {
+    const buffer = this.getAudioBuffer();
+    if (!buffer) return { rms: 0, peak: 0 };
+    let sum = 0;
+    let peak = 0;
+    for (let i = 0; i < buffer.length; i++) {
+      const v = buffer[i];
+      sum += v * v;
+      const a = Math.abs(v);
+      if (a > peak) peak = a;
+    }
+    return { rms: Math.sqrt(sum / buffer.length), peak };
   }
 
   async suspend(): Promise<void> {
@@ -84,6 +124,7 @@ export class AudioCapture {
     this.mediaStream = null;
     this.analyser = null;
     this.sourceNode = null;
+    this.freqBuffer = null;
   }
 
   get state(): string {
