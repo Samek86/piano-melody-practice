@@ -138,7 +138,7 @@ export class ScoreRenderer {
 
       if (measuresToRender.length === 0) return;
 
-      const noteSlot = 28;
+      const noteSlot = 32;
       const clefTimeWidth = 48;
 
       measuresToRender.forEach((measure, idx) => {
@@ -223,8 +223,8 @@ export class ScoreRenderer {
             const sb = (staveEl as SVGGraphicsElement).getBBox();
             
             const lineGap = 10;
-            const padX = Math.max(8, sb.width * 0.05);
-            const padY = lineGap * 1.8;
+            const padX = Math.max(14, sb.width * 0.08);
+            const padY = lineGap * 3.2;
             
             svg.setAttribute('viewBox', `${sb.x - padX} ${sb.y - padY} ${sb.width + padX * 2} ${sb.height + padY * 2}`);
             svg.setAttribute('preserveAspectRatio', 'xMidYMid meet');
