@@ -1,203 +1,219 @@
 import { Note } from '../../types';
-import { midiToNoteName } from '../../utils';
+import { Renderer, Stave, StaveNote, Voice, Formatter, Accidental, Modifier } from 'vexflow';
 
 export interface RenderConfig {
   width: number;
   height: number;
-  noteSize: number;
   showNoteNames: boolean;
   showFingerNumbers: boolean;
 }
 
+interface Measure {
+  notes: Note[];
+  startIndex: number;
+}
+
 export class ScoreRenderer {
-  private svg: SVGSVGElement;
+  private container: HTMLElement;
+  private renderer: Renderer | null = null;
   private notes: Note[];
   private config: RenderConfig;
-  private noteElements: SVGGElement[] = [];
+  private measures: Measure[] = [];
+  private currentMeasureWindow: number = 0;
+  private timeSignature: [number, number];
+  private noteToVexIndexMap: Map<number, { measureIdx: number; noteIdx: number }> = new Map();
 
-  constructor(container: HTMLElement, notes: Note[], config: RenderConfig) {
+  constructor(
+    container: HTMLElement,
+    notes: Note[],
+    config: RenderConfig,
+    timeSignature: [number, number] = [4, 4]
+  ) {
+    this.container = container;
     this.notes = notes;
     this.config = config;
-    this.svg = this.createSVG(container);
+    this.timeSignature = timeSignature;
+    this.splitIntoMeasures();
     this.render();
   }
 
-  private createSVG(container: HTMLElement): SVGSVGElement {
-    container.innerHTML = '';
-    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-    svg.setAttribute('width', '100%');
-    svg.setAttribute('height', '100%');
-    svg.setAttribute('viewBox', `0 0 ${this.config.width} ${this.config.height}`);
-    svg.style.background = '#ffffff';
-    container.appendChild(svg);
-    return svg;
+  private splitIntoMeasures(): void {
+    const beatsPerMeasure = this.timeSignature[0];
+    const beatValue = this.timeSignature[1];
+    const totalBeatsPerMeasure = beatsPerMeasure;
+
+    let currentMeasure: Note[] = [];
+    let currentBeats = 0;
+    let noteIndex = 0;
+
+    for (const note of this.notes) {
+      const noteBeats = beatValue / note.duration;
+      
+      if (currentBeats + noteBeats > totalBeatsPerMeasure && currentMeasure.length > 0) {
+        this.measures.push({
+          notes: currentMeasure,
+          startIndex: noteIndex - currentMeasure.length
+        });
+        currentMeasure = [];
+        currentBeats = 0;
+      }
+
+      currentMeasure.push(note);
+      currentBeats += noteBeats;
+      noteIndex++;
+    }
+
+    if (currentMeasure.length > 0) {
+      this.measures.push({
+        notes: currentMeasure,
+        startIndex: noteIndex - currentMeasure.length
+      });
+    }
+  }
+
+  private midiToVexKey(midiNote: number): string {
+    const noteNames = ['c', 'c#', 'd', 'd#', 'e', 'f', 'f#', 'g', 'g#', 'a', 'a#', 'b'];
+    const octave = Math.floor(midiNote / 12) - 1;
+    const noteName = noteNames[midiNote % 12];
+    return `${noteName}/${octave}`;
+  }
+
+  private durationToVex(duration: number): string {
+    const durationMap: { [key: number]: string } = {
+      1: 'w',
+      2: 'h',
+      4: 'q',
+      8: '8',
+      16: '16'
+    };
+    return durationMap[duration] || 'q';
   }
 
   private render(): void {
-    // Draw staff
-    this.drawStaff();
+    this.container.innerHTML = '';
+    this.noteToVexIndexMap.clear();
 
-    // Draw treble clef
-    this.drawTrebleClef();
+    const width = this.config.width;
+    const height = this.config.height;
 
-    // Draw notes
-    this.notes.forEach((note, index) => {
-      this.drawNote(note, index);
+    const div = document.createElement('div');
+    this.container.appendChild(div);
+    
+    this.renderer = new Renderer(div, Renderer.Backends.SVG);
+    this.renderer.resize(width, height);
+    const context = this.renderer.getContext();
+    context.setFillStyle('#ffffff');
+    context.fillRect(0, 0, width, height);
+    context.setFillStyle('#000000');
+
+    const startMeasure = this.currentMeasureWindow;
+    const endMeasure = Math.min(startMeasure + 2, this.measures.length);
+    const measuresToRender = this.measures.slice(startMeasure, endMeasure);
+
+    if (measuresToRender.length === 0) return;
+
+    const staveWidth = (width - 40) / measuresToRender.length;
+    const staveY = Math.max(60, height / 2 - 60);
+
+    measuresToRender.forEach((measure, idx) => {
+      const actualMeasureIdx = startMeasure + idx;
+      const x = 20 + idx * staveWidth;
+      
+      const stave = new Stave(x, staveY, staveWidth);
+      
+      if (idx === 0) {
+        stave.addClef('treble');
+        stave.addTimeSignature(`${this.timeSignature[0]}/${this.timeSignature[1]}`);
+      }
+      
+      stave.setContext(context).draw();
+
+      const vexNotes: StaveNote[] = measure.notes.map((note, noteIdx) => {
+        const keys = [this.midiToVexKey(note.pitch)];
+        const duration = this.durationToVex(note.duration);
+        
+        const staveNote = new StaveNote({
+          keys,
+          duration,
+          clef: 'treble'
+        });
+
+        if (keys[0].includes('#')) {
+          staveNote.addModifier(new Accidental('#'), 0);
+        }
+
+        if (this.config.showFingerNumbers && note.finger) {
+          const fingering = new Modifier();
+          fingering.setPosition(Modifier.Position.ABOVE);
+          fingering.setText(String(note.finger));
+          fingering.setXShift(0);
+          fingering.setYShift(-10);
+          staveNote.addModifier(fingering, 0);
+        }
+
+        const globalNoteIndex = measure.startIndex + noteIdx;
+        this.noteToVexIndexMap.set(globalNoteIndex, {
+          measureIdx: actualMeasureIdx,
+          noteIdx
+        });
+
+        return staveNote;
+      });
+
+      const voice = new Voice({
+        numBeats: this.timeSignature[0],
+        beatValue: this.timeSignature[1]
+      });
+      voice.setStrict(false);
+      voice.addTickables(vexNotes);
+
+      new Formatter().joinVoices([voice]).format([voice], staveWidth - 20);
+      voice.draw(context, stave);
     });
   }
 
-  private drawStaff(): void {
-    const staffY = this.config.height / 2;
-    const lineSpacing = this.config.noteSize * 1.2;
-
-    // Draw 5 staff lines
-    for (let i = 0; i < 5; i++) {
-      const y = staffY + (i - 2) * lineSpacing;
-      const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
-      line.setAttribute('x1', '0');
-      line.setAttribute('x2', String(this.config.width));
-      line.setAttribute('y1', String(y));
-      line.setAttribute('y2', String(y));
-      line.setAttribute('stroke', '#333');
-      line.setAttribute('stroke-width', '2');
-      this.svg.appendChild(line);
-    }
-  }
-
-  private drawTrebleClef(): void {
-    const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
-    text.setAttribute('x', '30');
-    text.setAttribute('y', String(this.config.height / 2 + 40));
-    text.setAttribute('font-size', String(this.config.noteSize * 3));
-    text.setAttribute('font-family', 'serif');
-    text.setAttribute('fill', '#333');
-    text.textContent = '𝄞';
-    this.svg.appendChild(text);
-  }
-
-  private drawNote(note: Note, index: number): void {
-    const noteGroup = document.createElementNS('http://www.w3.org/2000/svg', 'g');
-    noteGroup.setAttribute('data-note-index', String(index));
-
-    const startX = 120;
-    const noteSpacing = Math.min(
-      (this.config.width - startX - 50) / this.notes.length,
-      this.config.noteSize * 2.5
-    );
-    const x = startX + index * noteSpacing;
-    const y = this.getNoteYPosition(note.pitch);
-
-    // Note head (large circle/ellipse)
-    const noteHead = document.createElementNS('http://www.w3.org/2000/svg', 'ellipse');
-    noteHead.setAttribute('cx', String(x));
-    noteHead.setAttribute('cy', String(y));
-    noteHead.setAttribute('rx', String(this.config.noteSize * 0.6));
-    noteHead.setAttribute('ry', String(this.config.noteSize * 0.5));
-    noteHead.setAttribute('fill', '#ccc');
-    noteHead.setAttribute('stroke', '#666');
-    noteHead.setAttribute('stroke-width', '2');
-    noteHead.classList.add('note-head');
-    noteGroup.appendChild(noteHead);
-
-    // Note stem (for quarter notes and shorter)
-    if (note.duration >= 4) {
-      const stem = document.createElementNS('http://www.w3.org/2000/svg', 'line');
-      const stemHeight = this.config.noteSize * 2.5;
-      stem.setAttribute('x1', String(x + this.config.noteSize * 0.6));
-      stem.setAttribute('x2', String(x + this.config.noteSize * 0.6));
-      stem.setAttribute('y1', String(y));
-      stem.setAttribute('y2', String(y - stemHeight));
-      stem.setAttribute('stroke', '#333');
-      stem.setAttribute('stroke-width', '3');
-      noteGroup.appendChild(stem);
-    }
-
-    // Finger number (LARGE and prominent)
-    if (this.config.showFingerNumbers && note.finger) {
-      const fingerText = document.createElementNS('http://www.w3.org/2000/svg', 'text');
-      fingerText.setAttribute('x', String(x));
-      fingerText.setAttribute('y', String(y - this.config.noteSize * 1.5));
-      fingerText.setAttribute('font-size', String(this.config.noteSize * 1.2));
-      fingerText.setAttribute('font-weight', 'bold');
-      fingerText.setAttribute('fill', '#2196F3');
-      fingerText.setAttribute('text-anchor', 'middle');
-      fingerText.textContent = String(note.finger);
-      noteGroup.appendChild(fingerText);
-    }
-
-    // Note name (optional, below note)
-    if (this.config.showNoteNames) {
-      const noteName = midiToNoteName(note.pitch);
-      const nameText = document.createElementNS('http://www.w3.org/2000/svg', 'text');
-      nameText.setAttribute('x', String(x));
-      nameText.setAttribute('y', String(y + this.config.noteSize * 1.8));
-      nameText.setAttribute('font-size', String(this.config.noteSize * 0.7));
-      nameText.setAttribute('fill', '#666');
-      nameText.setAttribute('text-anchor', 'middle');
-      nameText.textContent = noteName;
-      noteGroup.appendChild(nameText);
-    }
-
-    // Add ledger lines if needed
-    this.drawLedgerLines(x, y, note.pitch, noteGroup);
-
-    this.noteElements.push(noteGroup);
-    this.svg.appendChild(noteGroup);
-  }
-
-  private getNoteYPosition(midiNote: number): number {
-    const staffCenter = this.config.height / 2;
-    const lineSpacing = this.config.noteSize * 0.6;
-    const offset = (60 - midiNote) * lineSpacing;
-    return staffCenter + offset;
-  }
-
-  private drawLedgerLines(x: number, y: number, midiNote: number, group: SVGGElement): void {
-    const lineWidth = this.config.noteSize * 1.4;
-
-    // Above staff (high notes)
-    if (midiNote >= 77) { // F5 and above
-      const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
-      line.setAttribute('x1', String(x - lineWidth / 2));
-      line.setAttribute('x2', String(x + lineWidth / 2));
-      line.setAttribute('y1', String(y));
-      line.setAttribute('y2', String(y));
-      line.setAttribute('stroke', '#333');
-      line.setAttribute('stroke-width', '2');
-      group.appendChild(line);
-    }
-
-    // Below staff (low notes)
-    if (midiNote <= 52) { // E3 and below
-      const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
-      line.setAttribute('x1', String(x - lineWidth / 2));
-      line.setAttribute('x2', String(x + lineWidth / 2));
-      line.setAttribute('y1', String(y));
-      line.setAttribute('y2', String(y));
-      line.setAttribute('stroke', '#333');
-      line.setAttribute('stroke-width', '2');
-      group.appendChild(line);
-    }
-  }
-
   highlightNote(index: number, color: 'blue' | 'green' | 'red'): void {
-    if (index < 0 || index >= this.noteElements.length) return;
+    if (index < 0 || index >= this.notes.length) return;
 
-    const noteGroup = this.noteElements[index];
-    const noteHead = noteGroup.querySelector('.note-head') as SVGElement;
+    const noteInfo = this.noteToVexIndexMap.get(index);
+    if (!noteInfo) return;
+
+    const startMeasure = this.currentMeasureWindow;
+    const measureInWindow = noteInfo.measureIdx - startMeasure;
+    
+    if (measureInWindow < 0 || measureInWindow >= 2) {
+      this.updateMeasureWindow(index);
+      return;
+    }
+
+    const svg = this.container.querySelector('svg');
+    if (!svg) return;
+
+    const noteHeads = svg.querySelectorAll('.vf-notehead');
+    
+    let noteOffset = 0;
+    
+    for (let i = 0; i < noteInfo.measureIdx; i++) {
+      if (i >= startMeasure && i < startMeasure + 2) {
+        noteOffset += this.measures[i].notes.length;
+      }
+    }
+    
+    const targetNoteIndex = noteOffset + noteInfo.noteIdx;
+    const noteHead = noteHeads[targetNoteIndex] as SVGElement;
+    
     if (!noteHead) return;
 
     const colors = {
-      blue: { fill: '#2196F3', stroke: '#1976D2' },
-      green: { fill: '#4CAF50', stroke: '#388E3C' },
-      red: { fill: '#F44336', stroke: '#D32F2F' }
+      blue: '#2196F3',
+      green: '#4CAF50',
+      red: '#F44336'
     };
 
-    noteHead.setAttribute('fill', colors[color].fill);
-    noteHead.setAttribute('stroke', colors[color].stroke);
-    noteHead.setAttribute('stroke-width', '4');
+    noteHead.style.fill = colors[color];
+    noteHead.style.stroke = colors[color];
+    noteHead.style.strokeWidth = '3';
 
-    // Scale animation
     if (color === 'green') {
       noteHead.style.transform = 'scale(1.2)';
       noteHead.style.transformOrigin = 'center';
@@ -209,25 +225,40 @@ export class ScoreRenderer {
   }
 
   clearHighlight(index: number): void {
-    if (index < 0 || index >= this.noteElements.length) return;
+    if (index < 0 || index >= this.notes.length) return;
 
-    const noteGroup = this.noteElements[index];
-    const noteHead = noteGroup.querySelector('.note-head') as SVGElement;
-    if (!noteHead) return;
+    const svg = this.container.querySelector('svg');
+    if (!svg) return;
 
-    noteHead.setAttribute('fill', '#ccc');
-    noteHead.setAttribute('stroke', '#666');
-    noteHead.setAttribute('stroke-width', '2');
-    noteHead.style.transform = 'scale(1)';
+    const noteHeads = svg.querySelectorAll('.vf-notehead');
+    noteHeads.forEach((noteHead: Element) => {
+      const svgElement = noteHead as SVGElement;
+      svgElement.style.fill = 'black';
+      svgElement.style.stroke = 'black';
+      svgElement.style.strokeWidth = '1';
+      svgElement.style.transform = 'scale(1)';
+    });
+  }
+
+  private updateMeasureWindow(currentNoteIndex: number): void {
+    const noteInfo = this.noteToVexIndexMap.get(currentNoteIndex);
+    if (!noteInfo) return;
+
+    const newWindow = Math.floor(noteInfo.measureIdx / 2) * 2;
+    
+    if (newWindow !== this.currentMeasureWindow) {
+      this.currentMeasureWindow = newWindow;
+      this.render();
+    }
   }
 
   updateConfig(config: Partial<RenderConfig>): void {
     this.config = { ...this.config, ...config };
-    this.noteElements = [];
     this.render();
   }
 
   destroy(): void {
-    this.svg.remove();
+    this.container.innerHTML = '';
+    this.renderer = null;
   }
 }
