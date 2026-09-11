@@ -126,25 +126,33 @@ export class ScoreRenderer {
       const div = document.createElement('div');
       this.container.appendChild(div);
       
-      // Scale factor for significantly larger notes (optimized for mobile landscape)
-      // Higher scale since we now have better space allocation (236px vs 188px)
-      const scaleFactor = 6.0;
-      const renderWidth = width * scaleFactor;
-      const renderHeight = height * scaleFactor;
-      
+      // Create SVG at actual container size
       this.renderer = new Renderer(div, Renderer.Backends.SVG);
-      this.renderer.resize(renderWidth, renderHeight);
+      this.renderer.resize(width, height);
       const context = this.renderer.getContext();
+      
+      // Fill background before scaling
       context.setFillStyle('#fffef7');
-      context.fillRect(0, 0, renderWidth, renderHeight);
+      context.fillRect(0, 0, width, height);
       context.setFillStyle('#000000');
 
-      // Scale the SVG element back down to fit container
+      // Scale context to make notes ~3× larger
+      // Draw in logical space (width/S × height/S), context.scale makes it appear larger
+      const S = 3.0;
+      context.scale(S, S);
+
+      // Work in logical coordinates
+      const logicalWidth = width / S;
+      const logicalHeight = height / S;
+
+      // Ensure SVG has correct attributes
       const svg = div.querySelector('svg');
       if (svg) {
+        svg.setAttribute('width', String(width));
+        svg.setAttribute('height', String(height));
+        svg.setAttribute('viewBox', `0 0 ${width} ${height}`);
         svg.style.width = `${width}px`;
         svg.style.height = `${height}px`;
-        svg.setAttribute('viewBox', `0 0 ${renderWidth} ${renderHeight}`);
         svg.style.display = 'block';
       }
 
@@ -157,16 +165,15 @@ export class ScoreRenderer {
 
       if (measuresToRender.length === 0) return;
 
-      // Calculate stave dimensions with scaled values
-      const marginX = 40 * scaleFactor;
-      const clefTimeWidth = 180 * scaleFactor;
-      const availableWidth = renderWidth - 2 * marginX;
+      // Calculate stave dimensions in logical coordinates
+      const marginX = 10;
+      const clefTimeWidth = 60;
+      const availableWidth = logicalWidth - 2 * marginX;
       
       const staveWidth = availableWidth;
 
-      // Position stave to use vertical space efficiently
-      // Center the stave vertically in the available space
-      const staveY = (renderHeight * 0.5) - (80 * scaleFactor);
+      // Center stave vertically in logical space
+      const staveY = (logicalHeight / 2) - 20;
 
       measuresToRender.forEach((measure, idx) => {
         const actualMeasureIdx = startMeasure + idx;
@@ -220,8 +227,8 @@ export class ScoreRenderer {
         voice.setStrict(false);
         voice.addTickables(vexNotes);
 
-        // Give formatter adequate width with scaled spacing
-        const formatterWidth = currentStaveWidth - (actualMeasureIdx === 0 ? clefTimeWidth : 60 * scaleFactor);
+        // Give formatter adequate width in logical coordinates
+        const formatterWidth = currentStaveWidth - (actualMeasureIdx === 0 ? clefTimeWidth : 20);
         new Formatter().joinVoices([voice]).format([voice], formatterWidth);
         voice.draw(context, stave);
 
