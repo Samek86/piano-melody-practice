@@ -59,6 +59,23 @@ export class AudioCapture {
     return buffer;
   }
 
+  getFrequencyData(): Uint8Array | null {
+    if (!this.analyser) return null;
+    const buffer = new Uint8Array(this.analyser.frequencyBinCount);
+    this.analyser.getByteFrequencyData(buffer);
+    return buffer;
+  }
+
+  getRMS(): number {
+    const buffer = this.getAudioBuffer();
+    if (!buffer) return 0;
+    let sum = 0;
+    for (let i = 0; i < buffer.length; i++) {
+      sum += buffer[i] * buffer[i];
+    }
+    return Math.sqrt(sum / buffer.length);
+  }
+
   async suspend(): Promise<void> {
     await this.audioContext?.suspend();
   }

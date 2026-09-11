@@ -36,6 +36,7 @@ export const PracticeScreen: React.FC = () => {
   const [renderError, setRenderError] = React.useState<string | null>(null);
   const [needsMicUnlock, setNeedsMicUnlock] = React.useState(false);
   const [isScoreReady, setIsScoreReady] = React.useState(false);
+  const [inputLevel, setInputLevel] = React.useState(0);
   const lastPitchPublishRef = React.useRef(0);
   const lastPublishedFreqRef = React.useRef<number | null>(null);
   const currentNoteIndexRef = React.useRef(currentNoteIndex);
@@ -144,7 +145,7 @@ export const PracticeScreen: React.FC = () => {
           sampleRate: actualSampleRate,
           threshold: 0.5,
           analysisInterval: 50,
-          noiseGate: -70
+          noiseGate: -55  // Balanced: not too sensitive, not too strict
         });
 
         if (!cancelled) startAudioLoop();
@@ -216,9 +217,13 @@ export const PracticeScreen: React.FC = () => {
           }
           return;
         }
-        const result = pitchDetectorRef.current.detect(buffer);
+        const frequencyData = audioCaptureRef.current.getFrequencyData();
+        const result = pitchDetectorRef.current.detect(buffer, frequencyData || undefined);
 
         if (result) {
+          // Update input level for visual feedback
+          setInputLevel(result.inputLevel || 0);
+          
           const now = Date.now();
           const freqChanged =
             (result.frequency == null && lastPublishedFreqRef.current != null) ||
@@ -433,6 +438,21 @@ export const PracticeScreen: React.FC = () => {
         <div className="progress-bar">
           <div className="progress-fill" style={{ width: `${progress}%` }} />
         </div>
+
+        {!settings.testMode && (
+          <div className="input-level-meter">
+            <div className="meter-label">입력</div>
+            <div className="meter-bar">
+              <div 
+                className="meter-fill" 
+                style={{ 
+                  width: `${Math.min(100, inputLevel * 500)}%`,
+                  backgroundColor: inputLevel > 0.05 ? '#48bb78' : '#718096'
+                }} 
+              />
+            </div>
+          </div>
+        )}
 
         <div className="pitch-indicator">
           {detectedPitch && Number.isFinite(detectedPitch) && detectedPitch > 0 ? (
