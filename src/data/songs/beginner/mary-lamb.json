@@ -21,7 +21,20 @@
     { "pitch": 62, "duration": 2, "finger": 2 },
     { "pitch": 64, "duration": 4, "finger": 3 },
     { "pitch": 67, "duration": 4, "finger": 5 },
-    { "pitch": 67, "duration": 2, "finger": 5 }
+    { "pitch": 67, "duration": 2, "finger": 5 },
+    { "pitch": 64, "duration": 4, "finger": 3 },
+    { "pitch": 62, "duration": 4, "finger": 2 },
+    { "pitch": 60, "duration": 4, "finger": 1 },
+    { "pitch": 62, "duration": 4, "finger": 2 },
+    { "pitch": 64, "duration": 4, "finger": 3 },
+    { "pitch": 64, "duration": 4, "finger": 3 },
+    { "pitch": 64, "duration": 4, "finger": 3 },
+    { "pitch": 64, "duration": 4, "finger": 3 },
+    { "pitch": 62, "duration": 4, "finger": 2 },
+    { "pitch": 62, "duration": 4, "finger": 2 },
+    { "pitch": 64, "duration": 4, "finger": 3 },
+    { "pitch": 62, "duration": 4, "finger": 2 },
+    { "pitch": 60, "duration": 2, "finger": 1 }
   ],
   "tags": ["동요", "입문", "동물"],
   "description": "4음 주로 사용하는 간단한 멜로디입니다."
