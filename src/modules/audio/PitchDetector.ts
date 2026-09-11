@@ -26,7 +26,6 @@ export class PitchDetector {
       sampleRate: config.sampleRate,
       threshold: config.threshold
     });
-    // Fallback detector for inharmonic piano attacks
     this.detectPitchLoose = PitchFinder.YIN({
       sampleRate: config.sampleRate,
       threshold: Math.min(0.15, config.threshold)
@@ -43,28 +42,60 @@ export class PitchDetector {
     const rms = this.calculateRMS(audioBuffer);
     const peak = this.calculatePeak(audioBuffer);
     const gate = this.dbToLinear(this.config.noiseGate);
-    // Phone mics often have low RMS but usable peaks on piano hits
     if (rms < gate && peak < gate * 4) {
       return { frequency: null, clarity: 0, timestamp: now };
     }
 
     let frequency = this.sanitizeFrequency(this.detectPitch(audioBuffer));
+    let clarity = 0.9;
     if (frequency == null) {
       frequency = this.sanitizeFrequency(this.detectPitchLoose(audioBuffer));
+      clarity = 0.8;
+    }
+    if (frequency == null) {
+      frequency = this.sanitizeFrequency(this.detectPitchAutocorrelation(audioBuffer));
+      clarity = 0.75;
     }
 
     return {
       frequency,
-      clarity: frequency ? 0.85 : 0,
+      clarity: frequency ? clarity : 0,
       timestamp: now
     };
+  }
+
+  private detectPitchAutocorrelation(buffer: Float32Array): number | null {
+    const sampleRate = this.config.sampleRate;
+    const bufferSize = buffer.length;
+    const minLag = Math.floor(sampleRate / this.maxFrequency);
+    const maxLag = Math.floor(sampleRate / this.minFrequency);
+
+    let bestLag = -1;
+    let bestCorrelation = -1;
+
+    for (let lag = minLag; lag < Math.min(maxLag, bufferSize / 2); lag++) {
+      let correlation = 0;
+      for (let i = 0; i < bufferSize - lag; i++) {
+        correlation += buffer[i] * buffer[i + lag];
+      }
+      if (correlation > bestCorrelation) {
+        bestCorrelation = correlation;
+        bestLag = lag;
+      }
+    }
+
+    const normalization = this.calculateRMS(buffer);
+    if (normalization < 0.005 || bestLag < 0) return null;
+    if (bestCorrelation / (normalization * normalization * (bufferSize - bestLag)) < 0.2) {
+      return null;
+    }
+    return sampleRate / bestLag;
   }
 
   private sanitizeFrequency(frequency: number | null | undefined): number | null {
     if (frequency == null || !Number.isFinite(frequency) || frequency <= 0) {
       return null;
     }
-    // Reject YIN garbage like ~19200Hz (maps to 「레」)
     if (frequency < this.minFrequency || frequency > this.maxFrequency) {
       return null;
     }
