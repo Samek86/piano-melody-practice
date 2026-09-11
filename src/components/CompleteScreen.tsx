@@ -22,7 +22,7 @@ export const CompleteScreen: React.FC = () => {
   };
 
   return (
-    <div className="container">
+    <div className="container complete-container">
       <div className="card complete-screen">
         <div className="celebration">🎉</div>
         <h1>완주했습니다!</h1>
