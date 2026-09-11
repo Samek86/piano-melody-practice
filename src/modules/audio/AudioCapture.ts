@@ -7,19 +7,21 @@ export class AudioCapture {
 
   async initialize(): Promise<void> {
     try {
-      // Request microphone access
+      // Request microphone access (no sampleRate constraint - use device default)
+      // iOS typically runs at 48000, Android/desktop often 44100
       this.mediaStream = await navigator.mediaDevices.getUserMedia({
         audio: {
           echoCancellation: false,
           noiseSuppression: false,
-          autoGainControl: false,
-          sampleRate: 44100
+          autoGainControl: false
         }
       });
 
-      // Create AudioContext
-      this.audioContext = new AudioContext({ sampleRate: 44100 });
+      // Create AudioContext with default sample rate (device-dependent)
+      this.audioContext = new AudioContext();
       this.sourceNode = this.audioContext.createMediaStreamSource(this.mediaStream);
+
+      console.log(`[AudioCapture] Initialized with sample rate: ${this.audioContext.sampleRate} Hz`);
 
       // Set up AnalyserNode
       this.analyser = this.audioContext.createAnalyser();
@@ -30,6 +32,11 @@ export class AudioCapture {
     } catch (error) {
       throw new Error(`마이크 접근 실패: ${(error as Error).message}`);
     }
+  }
+
+  getSampleRate(): number {
+    if (!this.audioContext) throw new Error('AudioCapture not initialized');
+    return this.audioContext.sampleRate;
   }
 
   getAudioBuffer(): Float32Array {
