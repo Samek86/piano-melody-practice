@@ -338,14 +338,44 @@ h2 {
 /* Landscape mode - maximize screen space */
 @media (orientation: landscape) {
   .practice-header {
-    padding: 10px 20px;
+    padding: 8px 16px;
+  }
+  
+  .practice-header h2 {
+    font-size: 1.2rem;
+    margin: 0;
   }
   
   .practice-footer {
-    padding: 10px 20px;
+    padding: 8px 16px;
   }
   
   .score-container {
     padding: 10px 20px;
+    flex: 1;
+    min-height: 0;
+  }
+  
+  .pitch-indicator {
+    font-size: 1rem;
+    padding: 8px;
+  }
+  
+  .keyboard {
+    padding: 8px;
+  }
+  
+  .key {
+    min-width: 35px;
+    height: 90px;
+  }
+  
+  .controls {
+    gap: 8px;
+  }
+  
+  .btn {
+    padding: 8px 16px;
+    font-size: 14px;
   }
 }

@@ -32,9 +32,7 @@ export const PracticeScreen: React.FC = () => {
   React.useEffect(() => {
     if (!currentSong || !scoreContainerRef.current) return;
 
-    // Initialize score renderer
     const container = scoreContainerRef.current;
-    const noteSize = Math.min(window.innerWidth / 15, 40);
 
     scoreRendererRef.current = new ScoreRenderer(
       container,
@@ -42,13 +40,12 @@ export const PracticeScreen: React.FC = () => {
       {
         width: container.clientWidth,
         height: container.clientHeight,
-        noteSize,
         showNoteNames: settings.showNoteNames,
         showFingerNumbers: settings.showFingerNumbers
-      }
+      },
+      currentSong.timeSignature
     );
 
-    // Highlight first note
     scoreRendererRef.current.highlightNote(0, 'blue');
 
     return () => {
