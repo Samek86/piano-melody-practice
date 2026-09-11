@@ -1,5 +1,42 @@
 import { create } from 'zustand';
 import { Song } from '../types';
+import { DEFAULT_A4_HZ } from '../utils';
+
+const SETTINGS_KEY = 'piano-practice-settings';
+
+function loadSettings() {
+  const defaults = {
+    toleranceCents: 50,
+    sustainWindowMs: 200,
+    showNoteNames: true,
+    showFingerNumbers: true,
+    testMode: false,
+    a4Hz: DEFAULT_A4_HZ
+  };
+  try {
+    const raw = localStorage.getItem(SETTINGS_KEY);
+    if (!raw) return defaults;
+    const parsed = JSON.parse(raw) as Partial<typeof defaults>;
+    const a4 = Number(parsed.a4Hz);
+    return {
+      ...defaults,
+      ...parsed,
+      testMode: false,
+      a4Hz: Number.isFinite(a4) && a4 >= 420 && a4 <= 460 ? a4 : DEFAULT_A4_HZ
+    };
+  } catch {
+    return defaults;
+  }
+}
+
+function saveSettings(settings: ReturnType<typeof loadSettings>) {
+  try {
+    const { testMode: _t, ...rest } = settings;
+    localStorage.setItem(SETTINGS_KEY, JSON.stringify(rest));
+  } catch {
+    /* ignore */
+  }
+}
 
 export type AppState = 'idle' | 'song-selection' | 'requesting-mic' | 'practice' | 'paused' | 'complete' | 'error';
 export type PracticeState = 'waiting' | 'detecting' | 'matching' | 'sustaining' | 'success' | 'wrong-note';
@@ -34,6 +71,8 @@ interface AppStore {
     showNoteNames: boolean;
     showFingerNumbers: boolean;
     testMode: boolean;
+    /** Concert pitch for A4 in Hz (e.g. 440, 442, 445). */
+    a4Hz: number;
   };
   
   // Actions
@@ -68,13 +107,7 @@ export const useAppStore = create<AppStore>((set, get) => ({
   incorrectAttempts: 0,
   sustainProgress: 0,
   error: null,
-  settings: {
-    toleranceCents: 50,
-    sustainWindowMs: 200,
-    showNoteNames: true,
-    showFingerNumbers: true,
-    testMode: false
-  },
+  settings: loadSettings(),
   
   // Actions
   setAppState: (appState) => set({ appState }),
@@ -176,7 +209,9 @@ export const useAppStore = create<AppStore>((set, get) => ({
     appState: error ? 'error' : 'idle'
   }),
   
-  updateSettings: (newSettings) => set((state) => ({
-    settings: { ...state.settings, ...newSettings }
-  }))
+  updateSettings: (newSettings) => set((state) => {
+    const settings = { ...state.settings, ...newSettings };
+    saveSettings(settings);
+    return { settings };
+  })
 }));

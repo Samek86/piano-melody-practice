@@ -1,12 +1,16 @@
-// Utility functions for audio and MIDI
+// Utility functions for audio and MIDI (A4 reference configurable)
 
-export function midiToFrequency(midi: number): number {
-  return 440 * Math.pow(2, (midi - 69) / 12);
+export const DEFAULT_A4_HZ = 440;
+
+export function midiToFrequency(midi: number, a4Hz: number = DEFAULT_A4_HZ): number {
+  return a4Hz * Math.pow(2, (midi - 69) / 12);
 }
 
-export function frequencyToMidi(frequency: number): number {
-  if (!Number.isFinite(frequency) || frequency <= 0) return NaN;
-  return Math.round(69 + 12 * Math.log2(frequency / 440));
+export function frequencyToMidi(frequency: number, a4Hz: number = DEFAULT_A4_HZ): number {
+  if (!Number.isFinite(frequency) || frequency <= 0 || !Number.isFinite(a4Hz) || a4Hz <= 0) {
+    return NaN;
+  }
+  return Math.round(69 + 12 * Math.log2(frequency / a4Hz));
 }
 
 export function calculateCentsOff(detected: number, target: number): number {
@@ -17,8 +21,7 @@ export function calculateCentsOff(detected: number, target: number): number {
 }
 
 function pitchClassIndex(midi: number): number {
-  const pc = ((Math.round(midi) % 12) + 12) % 12;
-  return pc;
+  return ((Math.round(midi) % 12) + 12) % 12;
 }
 
 export function midiToNoteName(midi: number): string {
