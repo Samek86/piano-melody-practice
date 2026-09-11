@@ -138,15 +138,16 @@ export class ScoreRenderer {
 
       if (measuresToRender.length === 0) return;
 
-      const noteSlot = 32;
-      const clefTimeWidth = 48;
+      const noteSlot = 52;
+      const clefTimeWidth = 70;
+      const margin = 20;
 
       measuresToRender.forEach((measure, idx) => {
         const actualMeasureIdx = startMeasure + idx;
         
         const noteCount = measure.notes.length;
-        const contentWidth = (actualMeasureIdx === 0 ? clefTimeWidth : 0) + noteCount * noteSlot;
-        const staveWidth = Math.min(width - 40, contentWidth + 60);
+        const contentW = (actualMeasureIdx === 0 ? clefTimeWidth : 0) + noteCount * noteSlot + 36;
+        const staveWidth = Math.min(width - 2 * margin, Math.max(contentW, width * 0.72));
         const staveX = (width - staveWidth) / 2;
         const staveY = height / 2 - 40;
         
@@ -195,7 +196,7 @@ export class ScoreRenderer {
         voice.setStrict(false);
         voice.addTickables(vexNotes);
 
-        const formatterWidth = staveWidth - (actualMeasureIdx === 0 ? clefTimeWidth : 20);
+        const formatterWidth = staveWidth - (actualMeasureIdx === 0 ? clefTimeWidth + 20 : 30);
         new Formatter().joinVoices([voice]).format([voice], formatterWidth);
         voice.draw(context, stave);
 
