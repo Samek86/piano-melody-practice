@@ -142,9 +142,11 @@ export const PracticeScreen: React.FC = () => {
 
         pitchDetectorRef.current = new PitchDetector({
           sampleRate: actualSampleRate,
-          threshold: 0.5,
-          analysisInterval: 50,
-          noiseGate: -55
+          threshold: 0.2, // lower = accept less-periodic piano tones
+          analysisInterval: 40,
+          noiseGate: -68, // phone mic + distant piano is quiet
+          minFrequency: 55,
+          maxFrequency: 2500
         });
 
         if (!cancelled) startAudioLoop();
@@ -388,7 +390,7 @@ export const PracticeScreen: React.FC = () => {
         <div>
           <h2 style={{ margin: 0 }}>{currentSong.titleKo}</h2>
           <div style={{ color: '#718096', fontSize: '0.9rem' }}>
-            음표 {currentNoteIndex + 1} / {currentSong.notes.length} · pitchfix1
+            음표 {currentNoteIndex + 1} / {currentSong.notes.length} · pitchfix2
           </div>
         </div>
         <div className="controls">
