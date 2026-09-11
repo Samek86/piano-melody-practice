@@ -1,5 +1,5 @@
 import { Note } from '../../types';
-import { Renderer, Stave, StaveNote, Voice, Formatter, Accidental, Modifier } from 'vexflow';
+import { Renderer, Stave, StaveNote, Voice, Formatter, Accidental, Modifier, FretHandFinger } from 'vexflow';
 
 export interface RenderConfig {
   width: number;
@@ -96,80 +96,89 @@ export class ScoreRenderer {
     const width = this.config.width;
     const height = this.config.height;
 
-    const div = document.createElement('div');
-    this.container.appendChild(div);
-    
-    this.renderer = new Renderer(div, Renderer.Backends.SVG);
-    this.renderer.resize(width, height);
-    const context = this.renderer.getContext();
-    context.setFillStyle('#ffffff');
-    context.fillRect(0, 0, width, height);
-    context.setFillStyle('#000000');
+    // Defer render if container has no dimensions
+    if (width <= 0 || height <= 0) {
+      console.warn('ScoreRenderer: Container has zero dimensions, deferring render');
+      return;
+    }
 
-    const startMeasure = this.currentMeasureWindow;
-    const endMeasure = Math.min(startMeasure + 2, this.measures.length);
-    const measuresToRender = this.measures.slice(startMeasure, endMeasure);
-
-    if (measuresToRender.length === 0) return;
-
-    const staveWidth = (width - 40) / measuresToRender.length;
-    const staveY = Math.max(60, height / 2 - 60);
-
-    measuresToRender.forEach((measure, idx) => {
-      const actualMeasureIdx = startMeasure + idx;
-      const x = 20 + idx * staveWidth;
+    try {
+      const div = document.createElement('div');
+      this.container.appendChild(div);
       
-      const stave = new Stave(x, staveY, staveWidth);
-      
-      if (idx === 0) {
-        stave.addClef('treble');
-        stave.addTimeSignature(`${this.timeSignature[0]}/${this.timeSignature[1]}`);
-      }
-      
-      stave.setContext(context).draw();
+      this.renderer = new Renderer(div, Renderer.Backends.SVG);
+      this.renderer.resize(width, height);
+      const context = this.renderer.getContext();
+      context.setFillStyle('#ffffff');
+      context.fillRect(0, 0, width, height);
+      context.setFillStyle('#000000');
 
-      const vexNotes: StaveNote[] = measure.notes.map((note, noteIdx) => {
-        const keys = [this.midiToVexKey(note.pitch)];
-        const duration = this.durationToVex(note.duration);
+      const startMeasure = this.currentMeasureWindow;
+      const endMeasure = Math.min(startMeasure + 2, this.measures.length);
+      const measuresToRender = this.measures.slice(startMeasure, endMeasure);
+
+      if (measuresToRender.length === 0) return;
+
+      const staveWidth = (width - 40) / measuresToRender.length;
+      const staveY = Math.max(60, height / 2 - 60);
+
+      measuresToRender.forEach((measure, idx) => {
+        const actualMeasureIdx = startMeasure + idx;
+        const x = 20 + idx * staveWidth;
         
-        const staveNote = new StaveNote({
-          keys,
-          duration,
-          clef: 'treble'
+        const stave = new Stave(x, staveY, staveWidth);
+        
+        if (idx === 0) {
+          stave.addClef('treble');
+          stave.addTimeSignature(`${this.timeSignature[0]}/${this.timeSignature[1]}`);
+        }
+        
+        stave.setContext(context).draw();
+
+        const vexNotes: StaveNote[] = measure.notes.map((note, noteIdx) => {
+          const keys = [this.midiToVexKey(note.pitch)];
+          const duration = this.durationToVex(note.duration);
+          
+          const staveNote = new StaveNote({
+            keys,
+            duration,
+            clef: 'treble'
+          });
+
+          if (keys[0].includes('#')) {
+            staveNote.addModifier(new Accidental('#'), 0);
+          }
+
+          if (this.config.showFingerNumbers && note.finger) {
+            const fingering = new FretHandFinger(String(note.finger));
+            fingering.setPosition(Modifier.Position.ABOVE);
+            staveNote.addModifier(fingering, 0);
+          }
+
+          const globalNoteIndex = measure.startIndex + noteIdx;
+          this.noteToVexIndexMap.set(globalNoteIndex, {
+            measureIdx: actualMeasureIdx,
+            noteIdx
+          });
+
+          return staveNote;
         });
 
-        if (keys[0].includes('#')) {
-          staveNote.addModifier(new Accidental('#'), 0);
-        }
-
-        if (this.config.showFingerNumbers && note.finger) {
-          const fingering = new Modifier();
-          fingering.setPosition(Modifier.Position.ABOVE);
-          fingering.setText(String(note.finger));
-          fingering.setXShift(0);
-          fingering.setYShift(-10);
-          staveNote.addModifier(fingering, 0);
-        }
-
-        const globalNoteIndex = measure.startIndex + noteIdx;
-        this.noteToVexIndexMap.set(globalNoteIndex, {
-          measureIdx: actualMeasureIdx,
-          noteIdx
+        const voice = new Voice({
+          numBeats: this.timeSignature[0],
+          beatValue: this.timeSignature[1]
         });
+        voice.setStrict(false);
+        voice.addTickables(vexNotes);
 
-        return staveNote;
+        new Formatter().joinVoices([voice]).format([voice], staveWidth - 20);
+        voice.draw(context, stave);
       });
-
-      const voice = new Voice({
-        numBeats: this.timeSignature[0],
-        beatValue: this.timeSignature[1]
-      });
-      voice.setStrict(false);
-      voice.addTickables(vexNotes);
-
-      new Formatter().joinVoices([voice]).format([voice], staveWidth - 20);
-      voice.draw(context, stave);
-    });
+    } catch (error) {
+      console.error('ScoreRenderer: Failed to render score:', error);
+      this.container.innerHTML = '<div style="padding: 20px; text-align: center; color: #e53e3e;">악보 렌더링 오류가 발생했습니다.</div>';
+      throw error;
+    }
   }
 
   highlightNote(index: number, color: 'blue' | 'green' | 'red'): void {

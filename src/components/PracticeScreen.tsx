@@ -28,25 +28,42 @@ export const PracticeScreen: React.FC = () => {
   const pitchDetectorRef = React.useRef<PitchDetector | null>(null);
   const noteMatcherRef = React.useRef<NoteMatcher | null>(null);
   const animationFrameRef = React.useRef<number | null>(null);
+  const [renderError, setRenderError] = React.useState<string | null>(null);
 
   React.useEffect(() => {
     if (!currentSong || !scoreContainerRef.current) return;
 
     const container = scoreContainerRef.current;
 
-    scoreRendererRef.current = new ScoreRenderer(
-      container,
-      currentSong.notes,
-      {
-        width: container.clientWidth,
-        height: container.clientHeight,
-        showNoteNames: settings.showNoteNames,
-        showFingerNumbers: settings.showFingerNumbers
-      },
-      currentSong.timeSignature
-    );
+    // Wait for container to have valid dimensions
+    const initRenderer = () => {
+      if (container.clientWidth === 0 || container.clientHeight === 0) {
+        requestAnimationFrame(initRenderer);
+        return;
+      }
 
-    scoreRendererRef.current.highlightNote(0, 'blue');
+      try {
+        scoreRendererRef.current = new ScoreRenderer(
+          container,
+          currentSong.notes,
+          {
+            width: container.clientWidth,
+            height: container.clientHeight,
+            showNoteNames: settings.showNoteNames,
+            showFingerNumbers: settings.showFingerNumbers
+          },
+          currentSong.timeSignature
+        );
+
+        scoreRendererRef.current.highlightNote(0, 'blue');
+        setRenderError(null);
+      } catch (error) {
+        console.error('Failed to initialize score renderer:', error);
+        setRenderError('악보를 로드하는 중 오류가 발생했습니다.');
+      }
+    };
+
+    initRenderer();
 
     return () => {
       scoreRendererRef.current?.destroy();
@@ -163,6 +180,41 @@ export const PracticeScreen: React.FC = () => {
 
   const progress = ((currentNoteIndex / currentSong.notes.length) * 100);
   const currentNote = currentSong.notes[currentNoteIndex];
+
+  if (renderError) {
+    return (
+      <div className="practice-container">
+        <div className="practice-header">
+          <div>
+            <h2 style={{ margin: 0 }}>{currentSong.titleKo}</h2>
+          </div>
+          <div className="controls">
+            <button className="btn btn-danger" onClick={exitPractice}>
+              ✕ 나가기
+            </button>
+          </div>
+        </div>
+        <div style={{ 
+          flex: 1, 
+          display: 'flex', 
+          alignItems: 'center', 
+          justifyContent: 'center',
+          flexDirection: 'column',
+          padding: '40px',
+          textAlign: 'center'
+        }}>
+          <div style={{ fontSize: '3rem', marginBottom: '20px' }}>⚠️</div>
+          <h2 style={{ color: '#e53e3e', marginBottom: '16px' }}>{renderError}</h2>
+          <p style={{ color: '#718096', marginBottom: '24px' }}>
+            다시 시도하려면 다른 곡을 선택하거나 페이지를 새로고침하세요.
+          </p>
+          <button className="btn btn-primary" onClick={exitPractice}>
+            곡 선택으로 돌아가기
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="practice-container">
