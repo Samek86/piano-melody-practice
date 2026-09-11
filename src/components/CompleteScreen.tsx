@@ -24,9 +24,9 @@ export const CompleteScreen: React.FC = () => {
   return (
     <div className="container">
       <div className="card complete-screen">
-        <div className="celebration">🎉🎊🎵</div>
+        <div className="celebration">🎉</div>
         <h1>완주했습니다!</h1>
-        <p style={{ fontSize: '1.2rem', color: '#667eea', marginBottom: '30px' }}>
+        <p className="complete-subtitle">
           <strong>{currentSong.titleKo}</strong>를 성공적으로 연주하셨습니다!
         </p>
 
@@ -49,7 +49,7 @@ export const CompleteScreen: React.FC = () => {
           </div>
         </div>
 
-        <div style={{ display: 'flex', gap: '12px', justifyContent: 'center', marginTop: '30px' }}>
+        <div className="complete-actions">
           <button className="btn btn-secondary" onClick={handleRetry}>
             🔄 다시 연습
           </button>

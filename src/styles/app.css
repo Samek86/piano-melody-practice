@@ -329,6 +329,19 @@ h2 {
   margin: 20px 0;
 }
 
+.complete-subtitle {
+  font-size: 1.2rem;
+  color: #667eea;
+  margin-bottom: 30px;
+}
+
+.complete-actions {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+  margin-top: 30px;
+}
+
 .stats {
   margin: 30px 0;
   padding: 20px;
@@ -454,5 +467,59 @@ h2 {
 
   .progress-bar {
     height: 2px;
+  }
+
+  .container {
+    padding: 8px;
+    padding-left: max(8px, env(safe-area-inset-left));
+    padding-right: max(8px, env(safe-area-inset-right));
+    padding-top: max(8px, env(safe-area-inset-top));
+    padding-bottom: max(8px, env(safe-area-inset-bottom));
+  }
+
+  .card {
+    padding: 12px;
+    max-height: calc(100vh - 16px);
+    overflow-y: auto;
+  }
+
+  .complete-screen h1 {
+    font-size: 1.3rem;
+    margin: 8px 0;
+  }
+
+  .celebration {
+    font-size: 2rem;
+    margin: 8px 0;
+  }
+
+  .complete-subtitle {
+    font-size: 0.95rem;
+    margin-bottom: 12px;
+  }
+
+  .stats {
+    margin: 12px 0;
+    padding: 10px;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+
+  .stat-row {
+    flex-direction: column;
+    gap: 2px;
+    margin: 0;
+    font-size: 0.85rem;
+  }
+
+  .complete-actions {
+    margin-top: 12px;
+    gap: 8px;
+  }
+
+  .complete-actions .btn {
+    padding: 6px 12px;
+    font-size: 0.85rem;
   }
 }

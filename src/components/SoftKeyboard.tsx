@@ -38,28 +38,32 @@ export const SoftKeyboard: React.FC<SoftKeyboardProps> = ({ onNotePlay }) => {
   }, [pressedKey]);
 
   const playTone = (midiNote: number) => {
-    if (!audioContextRef.current) return;
-
-    const ctx = audioContextRef.current;
-    const freq = midiToFrequency(midiNote);
-
-    const oscillator = ctx.createOscillator();
-    const gainNode = ctx.createGain();
-
-    oscillator.type = 'sine';
-    oscillator.frequency.value = freq;
-
-    gainNode.gain.setValueAtTime(0.3, ctx.currentTime);
-    gainNode.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.5);
-
-    oscillator.connect(gainNode);
-    gainNode.connect(ctx.destination);
-
-    oscillator.start();
-    oscillator.stop(ctx.currentTime + 0.5);
-
     setPressedKey(midiNote);
     onNotePlay(midiNote);
+
+    if (audioContextRef.current) {
+      try {
+        const ctx = audioContextRef.current;
+        const freq = midiToFrequency(midiNote);
+
+        const oscillator = ctx.createOscillator();
+        const gainNode = ctx.createGain();
+
+        oscillator.type = 'sine';
+        oscillator.frequency.value = freq;
+
+        gainNode.gain.setValueAtTime(0.3, ctx.currentTime);
+        gainNode.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.5);
+
+        oscillator.connect(gainNode);
+        gainNode.connect(ctx.destination);
+
+        oscillator.start();
+        oscillator.stop(ctx.currentTime + 0.5);
+      } catch (err) {
+        console.warn('Audio playback failed:', err);
+      }
+    }
 
     setTimeout(() => setPressedKey(null), 200);
   };
