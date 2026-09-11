@@ -29,15 +29,29 @@ export const PracticeScreen: React.FC = () => {
   const noteMatcherRef = React.useRef<NoteMatcher | null>(null);
   const animationFrameRef = React.useRef<number | null>(null);
   const [renderError, setRenderError] = React.useState<string | null>(null);
+  const [isScoreLoading, setIsScoreLoading] = React.useState<boolean>(true);
+  const lastPitchUpdateRef = React.useRef<{ frequency: number | null; time: number }>({ 
+    frequency: null, 
+    time: 0 
+  });
 
   React.useEffect(() => {
     if (!currentSong || !scoreContainerRef.current) return;
 
     const container = scoreContainerRef.current;
+    let retryCount = 0;
+    const maxRetries = 20;
 
     const initRenderer = () => {
       if (container.clientWidth === 0 || container.clientHeight === 0) {
-        requestAnimationFrame(initRenderer);
+        retryCount++;
+        if (retryCount < maxRetries) {
+          requestAnimationFrame(initRenderer);
+        } else {
+          console.error('[PracticeScreen] Score container size still 0 after retries');
+          setRenderError('악보 영역을 초기화할 수 없습니다. 화면을 회전하거나 페이지를 새로고침하세요.');
+          setIsScoreLoading(false);
+        }
         return;
       }
 
@@ -56,12 +70,16 @@ export const PracticeScreen: React.FC = () => {
 
         scoreRendererRef.current.highlightNote(0, 'blue');
         setRenderError(null);
+        setIsScoreLoading(false);
+        console.log('[PracticeScreen] Score renderer initialized successfully');
       } catch (error) {
-        console.error('Failed to initialize score renderer:', error);
+        console.error('[PracticeScreen] Failed to initialize score renderer:', error);
         setRenderError('악보를 로드하는 중 오류가 발생했습니다.');
+        setIsScoreLoading(false);
       }
     };
 
+    setIsScoreLoading(true);
     initRenderer();
 
     // ResizeObserver to handle orientation changes and container resizing
@@ -145,30 +163,42 @@ export const PracticeScreen: React.FC = () => {
 
   const startAudioLoop = () => {
     const loop = () => {
-      if (!audioCaptureRef.current || !pitchDetectorRef.current || !noteMatcherRef.current) {
-        return;
-      }
+      try {
+        if (!audioCaptureRef.current || !pitchDetectorRef.current || !noteMatcherRef.current) {
+          return;
+        }
 
-      const buffer = audioCaptureRef.current.getAudioBuffer();
-      const result = pitchDetectorRef.current.detect(buffer);
+        const buffer = audioCaptureRef.current.getAudioBuffer();
+        const result = pitchDetectorRef.current.detect(buffer);
 
-      if (result) {
-        onPitchDetected(result.frequency, result.clarity);
+        if (result) {
+          const now = Date.now();
+          const lastUpdate = lastPitchUpdateRef.current;
+          const frequencyChanged = result.frequency !== lastUpdate.frequency;
+          const throttleElapsed = now - lastUpdate.time >= 100;
 
-        if (result.frequency) {
-          const matchResult = noteMatcherRef.current.checkMatch(result.frequency);
+          // Only update state if frequency changed or 100ms elapsed (throttle)
+          if (frequencyChanged || throttleElapsed) {
+            onPitchDetected(result.frequency, result.clarity);
+            lastPitchUpdateRef.current = { frequency: result.frequency, time: now };
+          }
 
-          if (matchResult.matched) {
-            scoreRendererRef.current?.highlightNote(currentNoteIndex, 'green');
-            onNoteMatched();
-          } else if (matchResult.centsOff && Math.abs(matchResult.centsOff) > settings.toleranceCents) {
-            // Wrong note - briefly flash red
-            scoreRendererRef.current?.highlightNote(currentNoteIndex, 'red');
-            setTimeout(() => {
-              scoreRendererRef.current?.highlightNote(currentNoteIndex, 'blue');
-            }, 300);
+          if (result.frequency) {
+            const matchResult = noteMatcherRef.current.checkMatch(result.frequency);
+
+            if (matchResult.matched) {
+              scoreRendererRef.current?.highlightNote(currentNoteIndex, 'green');
+              onNoteMatched();
+            } else if (matchResult.centsOff && Math.abs(matchResult.centsOff) > settings.toleranceCents) {
+              scoreRendererRef.current?.highlightNote(currentNoteIndex, 'red');
+              setTimeout(() => {
+                scoreRendererRef.current?.highlightNote(currentNoteIndex, 'blue');
+              }, 300);
+            }
           }
         }
+      } catch (error) {
+        console.error('[PracticeScreen] Audio loop error:', error);
       }
 
       if (appState === 'practice') {
@@ -265,7 +295,22 @@ export const PracticeScreen: React.FC = () => {
         </div>
       </div>
 
-      <div className="score-container" ref={scoreContainerRef} />
+      <div className="score-container" ref={scoreContainerRef}>
+        {isScoreLoading && (
+          <div style={{
+            position: 'absolute',
+            top: '50%',
+            left: '50%',
+            transform: 'translate(-50%, -50%)',
+            color: '#4299e1',
+            fontSize: '1.2rem',
+            textAlign: 'center'
+          }}>
+            <div style={{ marginBottom: '12px' }}>🎼</div>
+            <div>악보 로딩 중...</div>
+          </div>
+        )}
+      </div>
 
       <div className="practice-footer">
         <div className="progress-bar">

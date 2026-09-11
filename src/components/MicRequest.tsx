@@ -8,6 +8,8 @@ export const MicRequest: React.FC<{ onGranted: () => void }> = ({ onGranted }) =
   const requestMic = async () => {
     setRequesting(true);
     try {
+      // Force testMode to false when using real microphone
+      useAppStore.getState().updateSettings({ testMode: false });
       await navigator.mediaDevices.getUserMedia({ audio: true });
       onGranted();
     } catch (error) {

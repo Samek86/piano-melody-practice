@@ -19,9 +19,16 @@ export class AudioCapture {
 
       // Create AudioContext with default sample rate (device-dependent)
       this.audioContext = new AudioContext();
+      
+      // iOS requires explicit resume after user gesture
+      if (this.audioContext.state === 'suspended') {
+        console.log('[AudioCapture] Resuming suspended AudioContext (iOS)');
+        await this.audioContext.resume();
+      }
+
       this.sourceNode = this.audioContext.createMediaStreamSource(this.mediaStream);
 
-      console.log(`[AudioCapture] Initialized with sample rate: ${this.audioContext.sampleRate} Hz`);
+      console.log(`[AudioCapture] Initialized with sample rate: ${this.audioContext.sampleRate} Hz, state: ${this.audioContext.state}`);
 
       // Set up AnalyserNode
       this.analyser = this.audioContext.createAnalyser();
@@ -30,6 +37,7 @@ export class AudioCapture {
 
       this.sourceNode.connect(this.analyser);
     } catch (error) {
+      console.error('[AudioCapture] Initialization error:', error);
       throw new Error(`마이크 접근 실패: ${(error as Error).message}`);
     }
   }
