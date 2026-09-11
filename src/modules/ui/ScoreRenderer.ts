@@ -150,10 +150,10 @@ export class ScoreRenderer {
       
       let staveWidth: number;
       if (measuresToRender.length === 1) {
-        // Single measure: give it most of the width, accounting for clef on first measure
-        staveWidth = startMeasure === 0 ? availableWidth - clefTimeWidth : availableWidth;
+        // Single measure: only first measure of song needs clef space
+        staveWidth = availableWidth;
       } else {
-        // Multiple measures: split width, first one gets extra for clef
+        // Multiple measures: split width, first one gets extra for clef if it's measure 0
         staveWidth = availableWidth * 0.55; // We'll adjust per measure below
       }
 
@@ -299,7 +299,12 @@ export class ScoreRenderer {
     this.noteStates[index].state = stateMap[color];
 
     const noteInfo = this.noteToVexIndexMap.get(index);
-    if (!noteInfo) return;
+    
+    // If note not in map, it's not currently rendered - trigger window update
+    if (!noteInfo) {
+      this.updateMeasureWindow(index);
+      return;
+    }
 
     const startMeasure = this.currentMeasureWindow;
     const isNarrow = this.config.width < 900;

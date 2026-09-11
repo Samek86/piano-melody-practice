@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Debug Measure Window</title>
+</head>
+<body>
+<div id="output"></div>
+<script type="module">
+// Simulate the issue
+const measures = [
+  { startIndex: 0, notes: [1,2,3,4] },      // measure 0
+  { startIndex: 4, notes: [5,6,7] },        // measure 1
+  { startIndex: 7, notes: [8,9,10,11] },    // measure 2
+  { startIndex: 11, notes: [12,13,14] },    // measure 3
+];
+
+let currentMeasureWindow = 0;
+
+function highlightNote(index, width) {
+  // Find which measure this note belongs to
+  let noteInfo = null;
+  for (let m = 0; m < measures.length; m++) {
+    const measure = measures[m];
+    if (index >= measure.startIndex && index < measure.startIndex + measure.notes.length) {
+      noteInfo = { measureIdx: m };
+      break;
+    }
+  }
+  
+  if (!noteInfo) {
+    console.log(`Note ${index}: noteInfo not found!`);
+    return;
+  }
+  
+  const startMeasure = currentMeasureWindow;
+  const isNarrow = width < 900;
+  const measuresPerWindow = isNarrow ? 1 : 2;
+  const endMeasure = Math.min(startMeasure + measuresPerWindow, measures.length);
+  
+  console.log(`Note ${index}: measureIdx=${noteInfo.measureIdx}, window=[${startMeasure}, ${endMeasure}), isNarrow=${isNarrow}`);
+  
+  if (noteInfo.measureIdx < startMeasure || noteInfo.measureIdx >= endMeasure) {
+    console.log(`  -> Out of window, updating from ${currentMeasureWindow} to ${noteInfo.measureIdx}`);
+    currentMeasureWindow = noteInfo.measureIdx;
+  }
+}
+
+document.getElementById('output').innerHTML = '<h3>Testing note 8 (index 8, should be in measure 2):</h3>';
+console.log('=== Width 844 (narrow) ===');
+highlightNote(8, 844);
+console.log('After window update: currentMeasureWindow =', currentMeasureWindow);
+
+console.log('\n=== Width 1200 (wide) ===');
+currentMeasureWindow = 0;
+highlightNote(8, 1200);
+console.log('After window update: currentMeasureWindow =', currentMeasureWindow);
+</script>
+</body>
+</html>
