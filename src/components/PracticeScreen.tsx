@@ -388,7 +388,7 @@ export const PracticeScreen: React.FC = () => {
         <div>
           <h2 style={{ margin: 0 }}>{currentSong.titleKo}</h2>
           <div style={{ color: '#718096', fontSize: '0.9rem' }}>
-            음표 {currentNoteIndex + 1} / {currentSong.notes.length} · whitefix2
+            음표 {currentNoteIndex + 1} / {currentSong.notes.length} · whitefix3
           </div>
         </div>
         <div className="controls">
@@ -408,12 +408,25 @@ export const PracticeScreen: React.FC = () => {
         </div>
       </div>
 
-      <div className="score-container" ref={scoreContainerRef}>
+      <div className="score-container">
         {!isScoreReady && !renderError && (
-          <div style={{ color: '#4a5568', textAlign: 'center', padding: 16 }}>
+          <div
+            style={{
+              position: 'absolute',
+              inset: 0,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              color: '#4a5568',
+              zIndex: 1,
+              pointerEvents: 'none'
+            }}
+          >
             악보 준비 중…
           </div>
         )}
+        {/* VexFlow owns this node exclusively — never put React children inside */}
+        <div ref={scoreContainerRef} className="score-host" />
       </div>
 
       <div className="practice-footer">
