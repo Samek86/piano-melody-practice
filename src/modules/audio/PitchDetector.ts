@@ -6,14 +6,13 @@ export interface PitchDetectionConfig {
   threshold: number;
   analysisInterval: number;
   noiseGate: number;
-  /** Lowest plausible piano fundamental (Hz). Default C2≈65. */
   minFrequency?: number;
-  /** Highest plausible piano fundamental (Hz). Default ~C7. */
   maxFrequency?: number;
 }
 
 export class PitchDetector {
   private detectPitch: (buffer: Float32Array) => number | null;
+  private detectPitchLoose: (buffer: Float32Array) => number | null;
   private config: PitchDetectionConfig;
   private lastDetectionTime = 0;
   private readonly minFrequency: number;
@@ -21,11 +20,16 @@ export class PitchDetector {
 
   constructor(config: PitchDetectionConfig) {
     this.config = config;
-    this.minFrequency = config.minFrequency ?? 65;
-    this.maxFrequency = config.maxFrequency ?? 2100;
+    this.minFrequency = config.minFrequency ?? 55;
+    this.maxFrequency = config.maxFrequency ?? 2500;
     this.detectPitch = PitchFinder.YIN({
       sampleRate: config.sampleRate,
       threshold: config.threshold
+    });
+    // Fallback detector for inharmonic piano attacks
+    this.detectPitchLoose = PitchFinder.YIN({
+      sampleRate: config.sampleRate,
+      threshold: Math.min(0.15, config.threshold)
     });
   }
 
@@ -37,28 +41,30 @@ export class PitchDetector {
     this.lastDetectionTime = now;
 
     const rms = this.calculateRMS(audioBuffer);
-    if (rms < this.dbToLinear(this.config.noiseGate)) {
+    const peak = this.calculatePeak(audioBuffer);
+    const gate = this.dbToLinear(this.config.noiseGate);
+    // Phone mics often have low RMS but usable peaks on piano hits
+    if (rms < gate && peak < gate * 4) {
       return { frequency: null, clarity: 0, timestamp: now };
     }
 
-    const raw = this.detectPitch(audioBuffer);
-    const frequency = this.sanitizeFrequency(raw);
+    let frequency = this.sanitizeFrequency(this.detectPitch(audioBuffer));
+    if (frequency == null) {
+      frequency = this.sanitizeFrequency(this.detectPitchLoose(audioBuffer));
+    }
 
     return {
       frequency,
-      clarity: frequency ? 0.9 : 0,
+      clarity: frequency ? 0.85 : 0,
       timestamp: now
     };
   }
 
-  /**
-   * YIN often returns absurd highs (e.g. ~19200Hz) on noise/silence remnants.
-   * Those map to MIDI pitch-class 2 (레) and look like "everything is 레".
-   */
   private sanitizeFrequency(frequency: number | null | undefined): number | null {
     if (frequency == null || !Number.isFinite(frequency) || frequency <= 0) {
       return null;
     }
+    // Reject YIN garbage like ~19200Hz (maps to 「레」)
     if (frequency < this.minFrequency || frequency > this.maxFrequency) {
       return null;
     }
@@ -71,6 +77,15 @@ export class PitchDetector {
       sum += buffer[i] * buffer[i];
     }
     return Math.sqrt(sum / buffer.length);
+  }
+
+  private calculatePeak(buffer: Float32Array): number {
+    let peak = 0;
+    for (let i = 0; i < buffer.length; i++) {
+      const a = Math.abs(buffer[i]);
+      if (a > peak) peak = a;
+    }
+    return peak;
   }
 
   private dbToLinear(db: number): number {
