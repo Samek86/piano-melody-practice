@@ -1,5 +1,5 @@
 import { Note } from '../../types';
-import { Renderer, Stave, StaveNote, Voice, Formatter, Accidental, Modifier, FretHandFinger } from 'vexflow';
+import { Renderer, Stave, StaveNote, Voice, Formatter, Accidental, Modifier, FretHandFinger, VexFlow } from 'vexflow';
 
 export interface RenderConfig {
   width: number;
@@ -126,18 +126,12 @@ export class ScoreRenderer {
       const div = document.createElement('div');
       this.container.appendChild(div);
       
-      // Draw at 1:1 CSS pixels (no scaling tricks)
       this.renderer = new Renderer(div, Renderer.Backends.SVG);
       this.renderer.resize(width, height);
       const context = this.renderer.getContext();
-      
-      context.setFillStyle('#fffef7');
-      context.fillRect(0, 0, width, height);
-      context.setFillStyle('#000000');
 
-      // Optional: increase stave line spacing for larger notes
-      // VexFlow uses spacing_between_lines_px (default ~10, we use ~18)
-      const spacingBetweenLines = 18;
+      const SCALE = 4;
+      const spacingBetweenLines = 10 * SCALE;
 
       // Always show 1 measure for better scaling on mobile
       const measuresPerWindow = 1;
@@ -148,29 +142,27 @@ export class ScoreRenderer {
 
       if (measuresToRender.length === 0) return;
 
-      // Calculate stave dimensions at 1:1 CSS pixels
       const marginX = 30;
       const clefTimeWidth = 80;
       const availableWidth = width - 2 * marginX;
       
       const staveWidth = availableWidth;
-
-      // Position stave roughly centered
       const staveY = height / 2 - 40;
 
-      measuresToRender.forEach((measure, idx) => {
-        const actualMeasureIdx = startMeasure + idx;
-        
-        const x = marginX;
-        const currentStaveWidth = staveWidth;
-        
-        const stave = new Stave(x, staveY, currentStaveWidth);
-        
-        // Set larger line spacing for bigger notes
-        (stave as any).options = { 
-          ...(stave as any).options, 
-          spacing_between_lines_px: spacingBetweenLines 
-        };
+      const originalFontScale = VexFlow.NOTATION_FONT_SCALE;
+      
+      try {
+        VexFlow.NOTATION_FONT_SCALE = 39 * SCALE;
+
+        measuresToRender.forEach((measure, idx) => {
+          const actualMeasureIdx = startMeasure + idx;
+          
+          const x = marginX;
+          const currentStaveWidth = staveWidth;
+          
+          const stave = new Stave(x, staveY, currentStaveWidth, { 
+            spacingBetweenLinesPx: spacingBetweenLines 
+          });
         
         // Only show clef+time signature on the first measure of the entire song
         if (actualMeasureIdx === 0) {
@@ -227,8 +219,6 @@ export class ScoreRenderer {
           const vfStaveNotes = svg.querySelectorAll('.vf-stavenote');
           vexNotes.forEach((_, vexIdx) => {
             const globalNoteIndex = measure.startIndex + vexIdx;
-            // Find the corresponding SVG element by reverse-indexing from rendered notes
-            // We need to count from the start of this render batch
             const renderBatchOffset = measuresToRender.slice(0, idx).reduce((sum, m) => sum + m.notes.length, 0);
             const svgElement = vfStaveNotes[renderBatchOffset + vexIdx];
             if (svgElement) {
@@ -240,29 +230,42 @@ export class ScoreRenderer {
 
       this.applyStateColors();
 
-      // After drawing, crop viewBox to content bbox to zoom/fill container
       const svg = this.container.querySelector('svg') as SVGSVGElement;
       if (svg) {
         try {
-          // Get bounding box of all drawn content
-          const bbox = svg.getBBox();
+          const stavePaths = svg.querySelectorAll('.vf-stave path');
+          const noteheadPaths = svg.querySelectorAll('.vf-notehead path');
+          const relevantPaths = Array.from(stavePaths).concat(Array.from(noteheadPaths));
           
-          // Add padding around the content
-          const padding = 20;
-          const viewBoxX = Math.max(0, bbox.x - padding);
-          const viewBoxY = Math.max(0, bbox.y - padding);
-          const viewBoxWidth = bbox.width + 2 * padding;
-          const viewBoxHeight = bbox.height + 2 * padding;
-          
-          // Set viewBox to crop into content, making notes fill the container
-          svg.setAttribute('viewBox', `${viewBoxX} ${viewBoxY} ${viewBoxWidth} ${viewBoxHeight}`);
-          svg.setAttribute('preserveAspectRatio', 'xMidYMid meet');
-          svg.style.width = '100%';
-          svg.style.height = '100%';
-          svg.style.display = 'block';
+          if (relevantPaths.length > 0) {
+            let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+            
+            relevantPaths.forEach(path => {
+              const bbox = (path as SVGGraphicsElement).getBBox();
+              minX = Math.min(minX, bbox.x);
+              minY = Math.min(minY, bbox.y);
+              maxX = Math.max(maxX, bbox.x + bbox.width);
+              maxY = Math.max(maxY, bbox.y + bbox.height);
+            });
+            
+            const padding = 20;
+            const viewBoxX = Math.max(0, minX - padding);
+            const viewBoxY = Math.max(0, minY - padding);
+            const viewBoxWidth = (maxX - minX) + 2 * padding;
+            const viewBoxHeight = (maxY - minY) + 2 * padding;
+            
+            svg.setAttribute('viewBox', `${viewBoxX} ${viewBoxY} ${viewBoxWidth} ${viewBoxHeight}`);
+            svg.setAttribute('preserveAspectRatio', 'xMidYMid meet');
+            svg.style.width = '100%';
+            svg.style.height = '100%';
+            svg.style.display = 'block';
+          }
         } catch (err) {
-          console.warn('Could not get SVG bbox:', err);
+          console.warn('Could not compute viewBox from paths:', err);
         }
+      }
+      } finally {
+        VexFlow.NOTATION_FONT_SCALE = originalFontScale;
       }
     } catch (error) {
       console.error('ScoreRenderer: Failed to render score:', error);
