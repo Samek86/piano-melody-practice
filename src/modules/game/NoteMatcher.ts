@@ -59,6 +59,28 @@ export class NoteMatcher {
     }
   }
 
+  matchInstant(midiNote: number): MatchResult {
+    const now = Date.now();
+
+    if (now - this.lastMatchTime < this.config.debounceMs) {
+      return this.createResult(false, 0);
+    }
+
+    if (!this.currentTargetNote) {
+      return this.createResult(false, 0);
+    }
+
+    const isMatch = midiNote === this.currentTargetNote;
+
+    if (isMatch) {
+      this.lastMatchTime = now;
+      this.matchStartTime = null;
+      return this.createResult(true, 0, this.currentTargetNote, 0);
+    } else {
+      return this.createResult(false, 0, this.currentTargetNote, undefined);
+    }
+  }
+
   private createResult(
     matched: boolean,
     sustainedMs: number,
