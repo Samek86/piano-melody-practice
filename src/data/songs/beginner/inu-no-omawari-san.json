@@ -21,7 +21,19 @@
     { "pitch": 60, "duration": 4, "finger": 1 },
     { "pitch": 62, "duration": 4, "finger": 2 },
     { "pitch": 64, "duration": 4, "finger": 3 },
-    { "pitch": 62, "duration": 2, "finger": 2 }
+    { "pitch": 62, "duration": 2, "finger": 2 },
+    { "pitch": 67, "duration": 4, "finger": 5 },
+    { "pitch": 67, "duration": 4, "finger": 5 },
+    { "pitch": 69, "duration": 4, "finger": 1 },
+    { "pitch": 67, "duration": 4, "finger": 5 },
+    { "pitch": 65, "duration": 4, "finger": 4 },
+    { "pitch": 64, "duration": 4, "finger": 3 },
+    { "pitch": 62, "duration": 2, "finger": 2 },
+    { "pitch": 60, "duration": 4, "finger": 1 },
+    { "pitch": 60, "duration": 4, "finger": 1 },
+    { "pitch": 62, "duration": 4, "finger": 2 },
+    { "pitch": 64, "duration": 4, "finger": 3 },
+    { "pitch": 60, "duration": 2, "finger": 1 }
   ],
   "tags": ["동요", "일본", "입문", "동물"],
   "description": "일본 동요. 길을 잃은 고양이 이야기입니다."

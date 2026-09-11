@@ -20,7 +20,20 @@
     { "pitch": 69, "duration": 4, "finger": 1 },
     { "pitch": 67, "duration": 4, "finger": 5 },
     { "pitch": 74, "duration": 4, "finger": 5 },
-    { "pitch": 72, "duration": 2, "finger": 4 }
+    { "pitch": 72, "duration": 2, "finger": 4 },
+    { "pitch": 67, "duration": 8, "finger": 5 },
+    { "pitch": 67, "duration": 8, "finger": 5 },
+    { "pitch": 67, "duration": 4, "finger": 5 },
+    { "pitch": 64, "duration": 4, "finger": 3 },
+    { "pitch": 72, "duration": 4, "finger": 4 },
+    { "pitch": 71, "duration": 4, "finger": 3 },
+    { "pitch": 69, "duration": 2, "finger": 1 },
+    { "pitch": 65, "duration": 8, "finger": 4 },
+    { "pitch": 65, "duration": 8, "finger": 4 },
+    { "pitch": 64, "duration": 4, "finger": 3 },
+    { "pitch": 72, "duration": 4, "finger": 4 },
+    { "pitch": 71, "duration": 4, "finger": 3 },
+    { "pitch": 69, "duration": 2, "finger": 1 }
   ],
   "tags": ["동요", "입문", "축하", "생일"],
   "description": "실용적이고 자주 연주하는 곡입니다."
