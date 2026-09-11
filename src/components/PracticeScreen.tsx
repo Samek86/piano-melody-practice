@@ -107,41 +107,51 @@ export const PracticeScreen: React.FC = () => {
   React.useEffect(() => {
     if (!currentSong) return;
 
+    let cancelled = false;
+
     const initializeAudio = async () => {
-      if (!settings.testMode) {
-        try {
-          // Prefer capture started in the mic-button tap (iOS AudioContext)
-          const bootstrapped = takeBootstrappedAudioCapture();
-          if (bootstrapped) {
-            audioCaptureRef.current = bootstrapped;
-          } else {
-            audioCaptureRef.current = new AudioCapture();
-            await audioCaptureRef.current.initialize();
-            await audioCaptureRef.current.resume();
+      if (settings.testMode) return;
+      try {
+        // Prefer capture started in the mic-button tap (iOS AudioContext)
+        const bootstrapped = takeBootstrappedAudioCapture();
+        if (cancelled) {
+          bootstrapped?.cleanup();
+          return;
+        }
+        if (bootstrapped) {
+          audioCaptureRef.current = bootstrapped;
+        } else {
+          audioCaptureRef.current = new AudioCapture();
+          await audioCaptureRef.current.initialize();
+          if (cancelled) {
+            audioCaptureRef.current.cleanup();
+            audioCaptureRef.current = null;
+            return;
           }
-          if (!audioCaptureRef.current.isReady) {
-            throw new Error('마이크 초기화가 완료되지 않았습니다');
-          }
-          if (audioCaptureRef.current.state === 'suspended') {
-            setNeedsMicUnlock(true);
-          }
+          await audioCaptureRef.current.resume();
+        }
+        if (!audioCaptureRef.current?.isReady) {
+          throw new Error('마이크 초기화가 완료되지 않았습니다');
+        }
+        if (audioCaptureRef.current.state === 'suspended') {
+          setNeedsMicUnlock(true);
+        }
 
-          // Get the actual device sample rate (iOS often 48000, desktop often 44100)
-          const actualSampleRate = audioCaptureRef.current.getSampleRate();
-          console.log(`[PracticeScreen] Using sample rate: ${actualSampleRate} Hz`);
+        const actualSampleRate = audioCaptureRef.current.getSampleRate();
+        console.log(`[PracticeScreen] Using sample rate: ${actualSampleRate} Hz`);
 
-          // Create PitchDetector with actual sample rate and relaxed threshold
-          pitchDetectorRef.current = new PitchDetector({
-            sampleRate: actualSampleRate,
-            threshold: 0.5,  // Relaxed from 0.9 for better real piano detection
-            analysisInterval: 50,
-            noiseGate: -70   // Lower = more sensitive to quiet piano via phone mic
-          });
+        pitchDetectorRef.current = new PitchDetector({
+          sampleRate: actualSampleRate,
+          threshold: 0.5,
+          analysisInterval: 50,
+          noiseGate: -70
+        });
 
-          // Start audio loop after initialization is complete
-          startAudioLoop();
-        } catch (error) {
-          console.error('[PracticeScreen] Audio initialization failed:', error);
+        if (!cancelled) startAudioLoop();
+      } catch (error) {
+        console.error('[PracticeScreen] Audio initialization failed:', error);
+        if (!cancelled) {
+          setRenderError(`마이크 시작 실패: ${(error as Error).message}`);
         }
       }
     };
@@ -151,14 +161,13 @@ export const PracticeScreen: React.FC = () => {
       sustainWindowMs: settings.sustainWindowMs,
       debounceMs: 100
     });
-
-    // Set target note
     noteMatcherRef.current.setTargetNote(currentSong.notes[0].pitch);
 
-    // Let the score paint first, then start mic (avoids blank first frame on iOS)
-    const deferAudio = window.setTimeout(() => { void initializeAudio(); }, 50);
+    // Paint score first, then start mic
+    const deferAudio = window.setTimeout(() => { void initializeAudio(); }, 100);
 
     return () => {
+      cancelled = true;
       window.clearTimeout(deferAudio);
       if (animationFrameRef.current) {
         cancelAnimationFrame(animationFrameRef.current);
@@ -379,7 +388,7 @@ export const PracticeScreen: React.FC = () => {
         <div>
           <h2 style={{ margin: 0 }}>{currentSong.titleKo}</h2>
           <div style={{ color: '#718096', fontSize: '0.9rem' }}>
-            음표 {currentNoteIndex + 1} / {currentSong.notes.length}
+            음표 {currentNoteIndex + 1} / {currentSong.notes.length} · whitefix2
           </div>
         </div>
         <div className="controls">
