@@ -1,0 +1,22 @@
+{
+  "id": "school-bell",
+  "title": "School Bell",
+  "titleKo": "학교 종이 땡땡땡",
+  "origin": "korean",
+  "composer": "Traditional Korean",
+  "difficulty": "beginner",
+  "tempo": 100,
+  "timeSignature": [4, 4],
+  "key": "C",
+  "notes": [
+    { "pitch": 64, "duration": 4, "finger": 2 },
+    { "pitch": 64, "duration": 4, "finger": 2 },
+    { "pitch": 67, "duration": 4, "finger": 5 },
+    { "pitch": 67, "duration": 4, "finger": 5 },
+    { "pitch": 64, "duration": 4, "finger": 2 },
+    { "pitch": 67, "duration": 4, "finger": 5 },
+    { "pitch": 64, "duration": 2, "finger": 2 }
+  ],
+  "tags": ["동요", "한국", "입문", "학교"],
+  "description": "가장 간단한 3음만 사용하는 동요. 도미솔로 완주할 수 있습니다."
+}

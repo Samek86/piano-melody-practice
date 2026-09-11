@@ -1,0 +1,24 @@
+{
+  "id": "umi",
+  "title": "Sea",
+  "titleKo": "바다",
+  "titleJa": "うみ",
+  "origin": "japanese",
+  "composer": "Traditional Japanese",
+  "difficulty": "beginner",
+  "tempo": 90,
+  "timeSignature": [3, 4],
+  "key": "C",
+  "notes": [
+    { "pitch": 60, "duration": 4, "finger": 1 },
+    { "pitch": 62, "duration": 4, "finger": 2 },
+    { "pitch": 64, "duration": 4, "finger": 3 },
+    { "pitch": 67, "duration": 4, "finger": 5 },
+    { "pitch": 67, "duration": 4, "finger": 5 },
+    { "pitch": 64, "duration": 4, "finger": 3 },
+    { "pitch": 62, "duration": 4, "finger": 2 },
+    { "pitch": 60, "duration": 2, "finger": 1 }
+  ],
+  "tags": ["동요", "일본", "입문", "자연", "여름"],
+  "description": "일본의 바다 노래입니다."
+}

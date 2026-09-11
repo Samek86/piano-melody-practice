@@ -1,0 +1,23 @@
+{
+  "id": "round-round",
+  "title": "Round and Round",
+  "titleKo": "둥글게 둥글게",
+  "origin": "korean",
+  "composer": "Traditional Korean",
+  "difficulty": "beginner",
+  "tempo": 110,
+  "timeSignature": [4, 4],
+  "key": "C",
+  "notes": [
+    { "pitch": 60, "duration": 4, "finger": 1 },
+    { "pitch": 64, "duration": 4, "finger": 3 },
+    { "pitch": 67, "duration": 4, "finger": 5 },
+    { "pitch": 64, "duration": 4, "finger": 3 },
+    { "pitch": 60, "duration": 4, "finger": 1 },
+    { "pitch": 64, "duration": 4, "finger": 3 },
+    { "pitch": 67, "duration": 4, "finger": 5 },
+    { "pitch": 64, "duration": 4, "finger": 3 }
+  ],
+  "tags": ["동요", "한국", "입문", "놀이"],
+  "description": "원형 반복 패턴의 전통 놀이 노래입니다."
+}

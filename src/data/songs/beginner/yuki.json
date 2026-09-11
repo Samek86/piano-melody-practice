@@ -1,0 +1,25 @@
+{
+  "id": "yuki",
+  "title": "Snow",
+  "titleKo": "눈",
+  "titleJa": "ゆき",
+  "origin": "japanese",
+  "composer": "Traditional Japanese",
+  "difficulty": "beginner",
+  "tempo": 90,
+  "timeSignature": [2, 4],
+  "key": "C",
+  "notes": [
+    { "pitch": 60, "duration": 4, "finger": 1 },
+    { "pitch": 60, "duration": 4, "finger": 1 },
+    { "pitch": 62, "duration": 4, "finger": 2 },
+    { "pitch": 64, "duration": 4, "finger": 3 },
+    { "pitch": 67, "duration": 4, "finger": 5 },
+    { "pitch": 67, "duration": 4, "finger": 5 },
+    { "pitch": 64, "duration": 4, "finger": 3 },
+    { "pitch": 62, "duration": 4, "finger": 2 },
+    { "pitch": 60, "duration": 2, "finger": 1 }
+  ],
+  "tags": ["동요", "일본", "입문", "겨울"],
+  "description": "일본 동요. 눈에 관한 노래입니다."
+}
