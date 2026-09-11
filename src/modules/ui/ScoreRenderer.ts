@@ -1,5 +1,5 @@
 import { Note } from '../../types';
-import { Renderer, Stave, StaveNote, Voice, Formatter, Accidental, Modifier, FretHandFinger, VexFlow } from 'vexflow';
+import { Renderer, Stave, StaveNote, Voice, Formatter, Accidental, Modifier, FretHandFinger } from 'vexflow';
 
 export interface RenderConfig {
   width: number;
@@ -130,10 +130,12 @@ export class ScoreRenderer {
       this.renderer.resize(width, height);
       const context = this.renderer.getContext();
 
-      const SCALE = 4;
-      const spacingBetweenLines = 10 * SCALE;
+      const SCALE = 3.5;
+      const logicalWidth = width / SCALE;
+      const logicalHeight = height / SCALE;
 
-      // Always show 1 measure for better scaling on mobile
+      context.scale(SCALE, SCALE);
+
       const measuresPerWindow = 1;
 
       const startMeasure = this.currentMeasureWindow;
@@ -144,25 +146,18 @@ export class ScoreRenderer {
 
       const marginX = 30;
       const clefTimeWidth = 80;
-      const availableWidth = width - 2 * marginX;
+      const availableWidth = logicalWidth - 2 * marginX;
       
       const staveWidth = availableWidth;
-      const staveY = height / 2 - 40;
+      const staveY = logicalHeight / 2 - 40;
 
-      const originalFontScale = VexFlow.NOTATION_FONT_SCALE;
-      
-      try {
-        VexFlow.NOTATION_FONT_SCALE = 39 * SCALE;
-
-        measuresToRender.forEach((measure, idx) => {
-          const actualMeasureIdx = startMeasure + idx;
-          
-          const x = marginX;
-          const currentStaveWidth = staveWidth;
-          
-          const stave = new Stave(x, staveY, currentStaveWidth, { 
-            spacingBetweenLinesPx: spacingBetweenLines 
-          });
+      measuresToRender.forEach((measure, idx) => {
+        const actualMeasureIdx = startMeasure + idx;
+        
+        const x = marginX;
+        const currentStaveWidth = staveWidth;
+        
+        const stave = new Stave(x, staveY, currentStaveWidth);
         
         // Only show clef+time signature on the first measure of the entire song
         if (actualMeasureIdx === 0) {
@@ -233,39 +228,22 @@ export class ScoreRenderer {
       const svg = this.container.querySelector('svg') as SVGSVGElement;
       if (svg) {
         try {
-          const stavePaths = svg.querySelectorAll('.vf-stave path');
-          const noteheadPaths = svg.querySelectorAll('.vf-notehead path');
-          const relevantPaths = Array.from(stavePaths).concat(Array.from(noteheadPaths));
+          const bbox = svg.getBBox();
           
-          if (relevantPaths.length > 0) {
-            let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
-            
-            relevantPaths.forEach(path => {
-              const bbox = (path as SVGGraphicsElement).getBBox();
-              minX = Math.min(minX, bbox.x);
-              minY = Math.min(minY, bbox.y);
-              maxX = Math.max(maxX, bbox.x + bbox.width);
-              maxY = Math.max(maxY, bbox.y + bbox.height);
-            });
-            
-            const padding = 20;
-            const viewBoxX = Math.max(0, minX - padding);
-            const viewBoxY = Math.max(0, minY - padding);
-            const viewBoxWidth = (maxX - minX) + 2 * padding;
-            const viewBoxHeight = (maxY - minY) + 2 * padding;
-            
-            svg.setAttribute('viewBox', `${viewBoxX} ${viewBoxY} ${viewBoxWidth} ${viewBoxHeight}`);
-            svg.setAttribute('preserveAspectRatio', 'xMidYMid meet');
-            svg.style.width = '100%';
-            svg.style.height = '100%';
-            svg.style.display = 'block';
-          }
+          const padding = 20;
+          const viewBoxX = Math.max(0, bbox.x - padding);
+          const viewBoxY = Math.max(0, bbox.y - padding);
+          const viewBoxWidth = bbox.width + 2 * padding;
+          const viewBoxHeight = bbox.height + 2 * padding;
+          
+          svg.setAttribute('viewBox', `${viewBoxX} ${viewBoxY} ${viewBoxWidth} ${viewBoxHeight}`);
+          svg.setAttribute('preserveAspectRatio', 'xMidYMid meet');
+          svg.style.width = '100%';
+          svg.style.height = '100%';
+          svg.style.display = 'block';
         } catch (err) {
-          console.warn('Could not compute viewBox from paths:', err);
+          console.warn('Could not compute viewBox from content:', err);
         }
-      }
-      } finally {
-        VexFlow.NOTATION_FONT_SCALE = originalFontScale;
       }
     } catch (error) {
       console.error('ScoreRenderer: Failed to render score:', error);
