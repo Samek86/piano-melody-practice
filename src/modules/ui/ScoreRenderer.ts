@@ -126,27 +126,18 @@ export class ScoreRenderer {
       const div = document.createElement('div');
       this.container.appendChild(div);
       
-      // Scale factor for significantly larger notes (optimized for mobile landscape)
-      // Higher scale since we now have better space allocation (236px vs 188px)
-      const scaleFactor = 6.0;
-      const renderWidth = width * scaleFactor;
-      const renderHeight = height * scaleFactor;
-      
+      // Draw at 1:1 CSS pixels (no scaling tricks)
       this.renderer = new Renderer(div, Renderer.Backends.SVG);
-      this.renderer.resize(renderWidth, renderHeight);
+      this.renderer.resize(width, height);
       const context = this.renderer.getContext();
+      
       context.setFillStyle('#fffef7');
-      context.fillRect(0, 0, renderWidth, renderHeight);
+      context.fillRect(0, 0, width, height);
       context.setFillStyle('#000000');
 
-      // Scale the SVG element back down to fit container
-      const svg = div.querySelector('svg');
-      if (svg) {
-        svg.style.width = `${width}px`;
-        svg.style.height = `${height}px`;
-        svg.setAttribute('viewBox', `0 0 ${renderWidth} ${renderHeight}`);
-        svg.style.display = 'block';
-      }
+      // Optional: increase stave line spacing for larger notes
+      // VexFlow uses spacing_between_lines_px (default ~10, we use ~18)
+      const spacingBetweenLines = 18;
 
       // Always show 1 measure for better scaling on mobile
       const measuresPerWindow = 1;
@@ -157,16 +148,15 @@ export class ScoreRenderer {
 
       if (measuresToRender.length === 0) return;
 
-      // Calculate stave dimensions with scaled values
-      const marginX = 40 * scaleFactor;
-      const clefTimeWidth = 180 * scaleFactor;
-      const availableWidth = renderWidth - 2 * marginX;
+      // Calculate stave dimensions at 1:1 CSS pixels
+      const marginX = 30;
+      const clefTimeWidth = 80;
+      const availableWidth = width - 2 * marginX;
       
       const staveWidth = availableWidth;
 
-      // Position stave to use vertical space efficiently
-      // Center the stave vertically in the available space
-      const staveY = (renderHeight * 0.5) - (80 * scaleFactor);
+      // Position stave roughly centered
+      const staveY = height / 2 - 40;
 
       measuresToRender.forEach((measure, idx) => {
         const actualMeasureIdx = startMeasure + idx;
@@ -175,6 +165,12 @@ export class ScoreRenderer {
         const currentStaveWidth = staveWidth;
         
         const stave = new Stave(x, staveY, currentStaveWidth);
+        
+        // Set larger line spacing for bigger notes
+        (stave as any).options = { 
+          ...(stave as any).options, 
+          spacing_between_lines_px: spacingBetweenLines 
+        };
         
         // Only show clef+time signature on the first measure of the entire song
         if (actualMeasureIdx === 0) {
@@ -220,8 +216,8 @@ export class ScoreRenderer {
         voice.setStrict(false);
         voice.addTickables(vexNotes);
 
-        // Give formatter adequate width with scaled spacing
-        const formatterWidth = currentStaveWidth - (actualMeasureIdx === 0 ? clefTimeWidth : 60 * scaleFactor);
+        // Give formatter adequate width
+        const formatterWidth = currentStaveWidth - (actualMeasureIdx === 0 ? clefTimeWidth : 30);
         new Formatter().joinVoices([voice]).format([voice], formatterWidth);
         voice.draw(context, stave);
 
@@ -243,6 +239,31 @@ export class ScoreRenderer {
       });
 
       this.applyStateColors();
+
+      // After drawing, crop viewBox to content bbox to zoom/fill container
+      const svg = this.container.querySelector('svg') as SVGSVGElement;
+      if (svg) {
+        try {
+          // Get bounding box of all drawn content
+          const bbox = svg.getBBox();
+          
+          // Add padding around the content
+          const padding = 20;
+          const viewBoxX = Math.max(0, bbox.x - padding);
+          const viewBoxY = Math.max(0, bbox.y - padding);
+          const viewBoxWidth = bbox.width + 2 * padding;
+          const viewBoxHeight = bbox.height + 2 * padding;
+          
+          // Set viewBox to crop into content, making notes fill the container
+          svg.setAttribute('viewBox', `${viewBoxX} ${viewBoxY} ${viewBoxWidth} ${viewBoxHeight}`);
+          svg.setAttribute('preserveAspectRatio', 'xMidYMid meet');
+          svg.style.width = '100%';
+          svg.style.height = '100%';
+          svg.style.display = 'block';
+        } catch (err) {
+          console.warn('Could not get SVG bbox:', err);
+        }
+      }
     } catch (error) {
       console.error('ScoreRenderer: Failed to render score:', error);
       this.container.innerHTML = '<div style="padding: 20px; text-align: center; color: #e53e3e;">악보 렌더링 오류가 발생했습니다.</div>';
