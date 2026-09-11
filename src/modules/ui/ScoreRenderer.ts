@@ -8,6 +8,13 @@ export interface RenderConfig {
   showFingerNumbers: boolean;
 }
 
+type NoteState = 'pending' | 'current' | 'completed' | 'wrong';
+
+interface NoteStateInfo {
+  state: NoteState;
+  measureIndex: number;
+}
+
 interface Measure {
   notes: Note[];
   startIndex: number;
@@ -19,6 +26,7 @@ export class ScoreRenderer {
   private notes: Note[];
   private config: RenderConfig;
   private measures: Measure[] = [];
+  private noteStates: NoteStateInfo[] = [];
   private currentMeasureWindow: number = 0;
   private timeSignature: [number, number];
   private noteToVexIndexMap: Map<number, { measureIdx: number; noteIdx: number }> = new Map();
@@ -34,6 +42,7 @@ export class ScoreRenderer {
     this.config = config;
     this.timeSignature = timeSignature;
     this.splitIntoMeasures();
+    this.initializeNoteStates();
     this.render();
   }
 
@@ -71,6 +80,18 @@ export class ScoreRenderer {
     }
   }
 
+  private initializeNoteStates(): void {
+    this.noteStates = this.notes.map((_, index) => {
+      const measureIndex = this.measures.findIndex(m => 
+        index >= m.startIndex && index < m.startIndex + m.notes.length
+      );
+      return {
+        state: 'pending' as NoteState,
+        measureIndex
+      };
+    });
+  }
+
   private midiToVexKey(midiNote: number): string {
     const noteNames = ['c', 'c#', 'd', 'd#', 'e', 'f', 'f#', 'g', 'g#', 'a', 'a#', 'b'];
     const octave = Math.floor(midiNote / 12) - 1;
@@ -96,7 +117,6 @@ export class ScoreRenderer {
     const width = this.config.width;
     const height = this.config.height;
 
-    // Defer render if container has no dimensions
     if (width <= 0 || height <= 0) {
       console.warn('ScoreRenderer: Container has zero dimensions, deferring render');
       return;
@@ -109,7 +129,7 @@ export class ScoreRenderer {
       this.renderer = new Renderer(div, Renderer.Backends.SVG);
       this.renderer.resize(width, height);
       const context = this.renderer.getContext();
-      context.setFillStyle('#ffffff');
+      context.setFillStyle('#fffef7');
       context.fillRect(0, 0, width, height);
       context.setFillStyle('#000000');
 
@@ -174,6 +194,8 @@ export class ScoreRenderer {
         new Formatter().joinVoices([voice]).format([voice], staveWidth - 20);
         voice.draw(context, stave);
       });
+
+      this.applyStateColors();
     } catch (error) {
       console.error('ScoreRenderer: Failed to render score:', error);
       this.container.innerHTML = '<div style="padding: 20px; text-align: center; color: #e53e3e;">악보 렌더링 오류가 발생했습니다.</div>';
@@ -181,8 +203,53 @@ export class ScoreRenderer {
     }
   }
 
+  private applyStateColors(): void {
+    const svg = this.container.querySelector('svg');
+    if (!svg) return;
+
+    const noteHeads = svg.querySelectorAll('.vf-notehead');
+    const startMeasure = this.currentMeasureWindow;
+    const endMeasure = Math.min(startMeasure + 2, this.measures.length);
+
+    let vexNoteIndex = 0;
+    for (let m = startMeasure; m < endMeasure; m++) {
+      const measure = this.measures[m];
+      for (let i = 0; i < measure.notes.length; i++) {
+        const globalIndex = measure.startIndex + i;
+        const noteHead = noteHeads[vexNoteIndex] as SVGElement;
+        
+        if (noteHead && globalIndex < this.noteStates.length) {
+          this.applyNoteStateStyle(noteHead, this.noteStates[globalIndex].state);
+        }
+        vexNoteIndex++;
+      }
+    }
+  }
+
+  private applyNoteStateStyle(noteHead: SVGElement, state: NoteState): void {
+    const styles = {
+      pending: { fill: '#d1d5db', stroke: '#9ca3af' },
+      current: { fill: '#3b82f6', stroke: '#1d4ed8' },
+      completed: { fill: '#10b981', stroke: '#059669' },
+      wrong: { fill: '#ef4444', stroke: '#dc2626' }
+    };
+
+    const style = styles[state];
+    noteHead.style.fill = style.fill;
+    noteHead.style.stroke = style.stroke;
+    noteHead.style.strokeWidth = '3';
+  }
+
   highlightNote(index: number, color: 'blue' | 'green' | 'red'): void {
     if (index < 0 || index >= this.notes.length) return;
+
+    const stateMap = {
+      blue: 'current' as NoteState,
+      green: 'completed' as NoteState,
+      red: 'wrong' as NoteState
+    };
+
+    this.noteStates[index].state = stateMap[color];
 
     const noteInfo = this.noteToVexIndexMap.get(index);
     if (!noteInfo) return;
@@ -201,11 +268,8 @@ export class ScoreRenderer {
     const noteHeads = svg.querySelectorAll('.vf-notehead');
     
     let noteOffset = 0;
-    
-    for (let i = 0; i < noteInfo.measureIdx; i++) {
-      if (i >= startMeasure && i < startMeasure + 2) {
-        noteOffset += this.measures[i].notes.length;
-      }
+    for (let i = startMeasure; i < noteInfo.measureIdx; i++) {
+      noteOffset += this.measures[i].notes.length;
     }
     
     const targetNoteIndex = noteOffset + noteInfo.noteIdx;
@@ -213,15 +277,7 @@ export class ScoreRenderer {
     
     if (!noteHead) return;
 
-    const colors = {
-      blue: '#2196F3',
-      green: '#4CAF50',
-      red: '#F44336'
-    };
-
-    noteHead.style.fill = colors[color];
-    noteHead.style.stroke = colors[color];
-    noteHead.style.strokeWidth = '3';
+    this.applyNoteStateStyle(noteHead, this.noteStates[index].state);
 
     if (color === 'green') {
       noteHead.style.transform = 'scale(1.2)';
@@ -234,24 +290,50 @@ export class ScoreRenderer {
   }
 
   clearHighlight(index: number): void {
-    if (index < 0 || index >= this.notes.length) return;
+    if (index < 0 || index >= this.noteStates.length) return;
+
+    if (this.noteStates[index].state === 'current') {
+      this.noteStates[index].state = 'pending';
+    }
 
     const svg = this.container.querySelector('svg');
     if (!svg) return;
 
+    const noteInfo = this.noteToVexIndexMap.get(index);
+    if (!noteInfo) return;
+
+    const startMeasure = this.currentMeasureWindow;
     const noteHeads = svg.querySelectorAll('.vf-notehead');
-    noteHeads.forEach((noteHead: Element) => {
-      const svgElement = noteHead as SVGElement;
-      svgElement.style.fill = 'black';
-      svgElement.style.stroke = 'black';
-      svgElement.style.strokeWidth = '1';
-      svgElement.style.transform = 'scale(1)';
-    });
+    
+    let noteOffset = 0;
+    for (let i = startMeasure; i < noteInfo.measureIdx; i++) {
+      if (i >= 0 && i < this.measures.length) {
+        noteOffset += this.measures[i].notes.length;
+      }
+    }
+    
+    const targetNoteIndex = noteOffset + noteInfo.noteIdx;
+    const noteHead = noteHeads[targetNoteIndex] as SVGElement;
+    
+    if (noteHead) {
+      this.applyNoteStateStyle(noteHead, this.noteStates[index].state);
+      noteHead.style.transform = 'scale(1)';
+    }
   }
 
   private updateMeasureWindow(currentNoteIndex: number): void {
     const noteInfo = this.noteToVexIndexMap.get(currentNoteIndex);
-    if (!noteInfo) return;
+    if (!noteInfo) {
+      const measureIndex = this.noteStates[currentNoteIndex]?.measureIndex;
+      if (measureIndex !== undefined && measureIndex >= 0) {
+        const newWindow = Math.floor(measureIndex / 2) * 2;
+        if (newWindow !== this.currentMeasureWindow) {
+          this.currentMeasureWindow = newWindow;
+          this.render();
+        }
+      }
+      return;
+    }
 
     const newWindow = Math.floor(noteInfo.measureIdx / 2) * 2;
     

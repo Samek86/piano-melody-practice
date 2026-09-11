@@ -35,7 +35,6 @@ export const PracticeScreen: React.FC = () => {
 
     const container = scoreContainerRef.current;
 
-    // Wait for container to have valid dimensions
     const initRenderer = () => {
       if (container.clientWidth === 0 || container.clientHeight === 0) {
         requestAnimationFrame(initRenderer);
@@ -158,11 +157,10 @@ export const PracticeScreen: React.FC = () => {
   const handleKeyboardNote = (midiNote: number) => {
     if (!noteMatcherRef.current || !currentSong) return;
 
-    // Simulate frequency from MIDI
     const frequency = 440 * Math.pow(2, (midiNote - 69) / 12);
     onPitchDetected(frequency, 1.0);
 
-    const matchResult = noteMatcherRef.current.checkMatch(frequency);
+    const matchResult = noteMatcherRef.current.matchInstant(midiNote);
 
     if (matchResult.matched) {
       scoreRendererRef.current?.highlightNote(currentNoteIndex, 'green');
