@@ -126,20 +126,10 @@ export class ScoreRenderer {
       const div = document.createElement('div');
       this.container.appendChild(div);
       
-      // Draw at 1:1 CSS pixels (no scaling tricks)
       this.renderer = new Renderer(div, Renderer.Backends.SVG);
       this.renderer.resize(width, height);
       const context = this.renderer.getContext();
-      
-      context.setFillStyle('#fffef7');
-      context.fillRect(0, 0, width, height);
-      context.setFillStyle('#000000');
 
-      // Optional: increase stave line spacing for larger notes
-      // VexFlow uses spacing_between_lines_px (default ~10, we use ~18)
-      const spacingBetweenLines = 18;
-
-      // Always show 1 measure for better scaling on mobile
       const measuresPerWindow = 1;
 
       const startMeasure = this.currentMeasureWindow;
@@ -148,32 +138,24 @@ export class ScoreRenderer {
 
       if (measuresToRender.length === 0) return;
 
-      // Calculate stave dimensions at 1:1 CSS pixels
-      const marginX = 30;
-      const clefTimeWidth = 80;
-      const availableWidth = width - 2 * marginX;
-      
-      const staveWidth = availableWidth;
-
-      // Position stave roughly centered
-      const staveY = height / 2 - 40;
+      const clefTimeWidth = 56;
+      const noteSlot = 40;
+      const endPad = 36;
+      const marginX = 20;
 
       measuresToRender.forEach((measure, idx) => {
         const actualMeasureIdx = startMeasure + idx;
         
-        const x = marginX;
-        const currentStaveWidth = staveWidth;
+        const noteCount = measure.notes.length;
+        const needsClef = actualMeasureIdx === 0;
+        const contentW = (needsClef ? clefTimeWidth : 24) + noteCount * noteSlot + endPad;
+        const staveWidth = Math.min(width - 2 * marginX, contentW);
+        const staveX = (width - staveWidth) / 2;
+        const staveY = height / 2 - 40;
         
-        const stave = new Stave(x, staveY, currentStaveWidth);
+        const stave = new Stave(staveX, staveY, staveWidth);
         
-        // Set larger line spacing for bigger notes
-        (stave as any).options = { 
-          ...(stave as any).options, 
-          spacing_between_lines_px: spacingBetweenLines 
-        };
-        
-        // Only show clef+time signature on the first measure of the entire song
-        if (actualMeasureIdx === 0) {
+        if (needsClef) {
           stave.addClef('treble');
           stave.addTimeSignature(`${this.timeSignature[0]}/${this.timeSignature[1]}`);
         }
@@ -216,19 +198,15 @@ export class ScoreRenderer {
         voice.setStrict(false);
         voice.addTickables(vexNotes);
 
-        // Give formatter adequate width
-        const formatterWidth = currentStaveWidth - (actualMeasureIdx === 0 ? clefTimeWidth : 30);
+        const formatterWidth = staveWidth - (needsClef ? clefTimeWidth + 12 : 12);
         new Formatter().joinVoices([voice]).format([voice], formatterWidth);
         voice.draw(context, stave);
 
-        // Attach data-note-index attributes to each note's SVG group for proper mapping
         const svg = this.container.querySelector('svg');
         if (svg) {
           const vfStaveNotes = svg.querySelectorAll('.vf-stavenote');
           vexNotes.forEach((_, vexIdx) => {
             const globalNoteIndex = measure.startIndex + vexIdx;
-            // Find the corresponding SVG element by reverse-indexing from rendered notes
-            // We need to count from the start of this render batch
             const renderBatchOffset = measuresToRender.slice(0, idx).reduce((sum, m) => sum + m.notes.length, 0);
             const svgElement = vfStaveNotes[renderBatchOffset + vexIdx];
             if (svgElement) {
@@ -240,28 +218,25 @@ export class ScoreRenderer {
 
       this.applyStateColors();
 
-      // After drawing, crop viewBox to content bbox to zoom/fill container
       const svg = this.container.querySelector('svg') as SVGSVGElement;
       if (svg) {
         try {
-          // Get bounding box of all drawn content
-          const bbox = svg.getBBox();
-          
-          // Add padding around the content
-          const padding = 20;
-          const viewBoxX = Math.max(0, bbox.x - padding);
-          const viewBoxY = Math.max(0, bbox.y - padding);
-          const viewBoxWidth = bbox.width + 2 * padding;
-          const viewBoxHeight = bbox.height + 2 * padding;
-          
-          // Set viewBox to crop into content, making notes fill the container
-          svg.setAttribute('viewBox', `${viewBoxX} ${viewBoxY} ${viewBoxWidth} ${viewBoxHeight}`);
-          svg.setAttribute('preserveAspectRatio', 'xMidYMid meet');
-          svg.style.width = '100%';
-          svg.style.height = '100%';
-          svg.style.display = 'block';
+          const staveEl = svg.querySelector('.vf-stave');
+          if (staveEl) {
+            const sb = (staveEl as SVGGraphicsElement).getBBox();
+            
+            const lineGap = 10;
+            const padX = Math.max(8, sb.width * 0.04);
+            const padY = lineGap * 2.1;
+            
+            svg.setAttribute('viewBox', `${sb.x - padX} ${sb.y - padY} ${sb.width + padX * 2} ${sb.height + padY * 2}`);
+            svg.setAttribute('preserveAspectRatio', 'xMidYMid meet');
+            svg.style.width = '100%';
+            svg.style.height = '100%';
+            svg.style.display = 'block';
+          }
         } catch (err) {
-          console.warn('Could not get SVG bbox:', err);
+          console.warn('Could not compute viewBox from .vf-stave:', err);
         }
       }
     } catch (error) {
