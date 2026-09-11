@@ -30,7 +30,7 @@ export const MicRequest: React.FC<{ onGranted: () => void }> = ({ onGranted }) =
     <div className="container">
       <div className="card">
         <h2>🎤 마이크 권한 필요</h2>
-        <p style={{ color: '#a0aec0', fontSize: 12 }}>build whitefix2</p>
+        <p style={{ color: '#a0aec0', fontSize: 12 }}>build whitefix3</p>
         <p style={{ color: '#718096', marginBottom: '20px' }}>
           <strong>{currentSong.titleKo}</strong>를 연습하려면 마이크 접근 권한이 필요합니다.
         </p>
