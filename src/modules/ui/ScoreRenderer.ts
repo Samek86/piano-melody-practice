@@ -126,16 +126,30 @@ export class ScoreRenderer {
       const div = document.createElement('div');
       this.container.appendChild(div);
       
+      // Scale factor for significantly larger notes (optimized for mobile landscape)
+      // Higher scale since we now have better space allocation (236px vs 188px)
+      const scaleFactor = 6.0;
+      const renderWidth = width * scaleFactor;
+      const renderHeight = height * scaleFactor;
+      
       this.renderer = new Renderer(div, Renderer.Backends.SVG);
-      this.renderer.resize(width, height);
+      this.renderer.resize(renderWidth, renderHeight);
       const context = this.renderer.getContext();
       context.setFillStyle('#fffef7');
-      context.fillRect(0, 0, width, height);
+      context.fillRect(0, 0, renderWidth, renderHeight);
       context.setFillStyle('#000000');
 
-      // Determine how many measures to show based on width
-      const isNarrow = width < 900;
-      const measuresPerWindow = isNarrow ? 1 : 2;
+      // Scale the SVG element back down to fit container
+      const svg = div.querySelector('svg');
+      if (svg) {
+        svg.style.width = `${width}px`;
+        svg.style.height = `${height}px`;
+        svg.setAttribute('viewBox', `0 0 ${renderWidth} ${renderHeight}`);
+        svg.style.display = 'block';
+      }
+
+      // Always show 1 measure for better scaling on mobile
+      const measuresPerWindow = 1;
 
       const startMeasure = this.currentMeasureWindow;
       const endMeasure = Math.min(startMeasure + measuresPerWindow, this.measures.length);
@@ -143,41 +157,22 @@ export class ScoreRenderer {
 
       if (measuresToRender.length === 0) return;
 
-      // Calculate stave width with proper spacing for clef+time signature
-      const marginX = 20;
-      const clefTimeWidth = 80; // Extra space needed for clef + time signature on first stave
-      const availableWidth = width - 2 * marginX;
+      // Calculate stave dimensions with scaled values
+      const marginX = 40 * scaleFactor;
+      const clefTimeWidth = 180 * scaleFactor;
+      const availableWidth = renderWidth - 2 * marginX;
       
-      let staveWidth: number;
-      if (measuresToRender.length === 1) {
-        // Single measure: only first measure of song needs clef space
-        staveWidth = availableWidth;
-      } else {
-        // Multiple measures: split width, first one gets extra for clef if it's measure 0
-        staveWidth = availableWidth * 0.55; // We'll adjust per measure below
-      }
+      const staveWidth = availableWidth;
 
-      const staveY = Math.max(60, height / 2 - 60);
+      // Position stave to use vertical space efficiently
+      // Center the stave vertically in the available space
+      const staveY = (renderHeight * 0.5) - (80 * scaleFactor);
 
       measuresToRender.forEach((measure, idx) => {
         const actualMeasureIdx = startMeasure + idx;
         
-        let x: number;
-        let currentStaveWidth: number;
-        
-        if (measuresToRender.length === 1) {
-          x = marginX;
-          currentStaveWidth = staveWidth;
-        } else {
-          // Two measures: first gets more width for clef
-          if (idx === 0) {
-            x = marginX;
-            currentStaveWidth = availableWidth * 0.55;
-          } else {
-            x = marginX + availableWidth * 0.55;
-            currentStaveWidth = availableWidth * 0.45;
-          }
-        }
+        const x = marginX;
+        const currentStaveWidth = staveWidth;
         
         const stave = new Stave(x, staveY, currentStaveWidth);
         
@@ -225,8 +220,8 @@ export class ScoreRenderer {
         voice.setStrict(false);
         voice.addTickables(vexNotes);
 
-        // Give formatter adequate width
-        const formatterWidth = currentStaveWidth - (actualMeasureIdx === 0 ? clefTimeWidth : 30);
+        // Give formatter adequate width with scaled spacing
+        const formatterWidth = currentStaveWidth - (actualMeasureIdx === 0 ? clefTimeWidth : 60 * scaleFactor);
         new Formatter().joinVoices([voice]).format([voice], formatterWidth);
         voice.draw(context, stave);
 
@@ -284,7 +279,7 @@ export class ScoreRenderer {
     const style = styles[state];
     noteHead.style.fill = style.fill;
     noteHead.style.stroke = style.stroke;
-    noteHead.style.strokeWidth = '3';
+    noteHead.style.strokeWidth = '4';
   }
 
   highlightNote(index: number, color: 'blue' | 'green' | 'red'): void {
@@ -307,8 +302,7 @@ export class ScoreRenderer {
     }
 
     const startMeasure = this.currentMeasureWindow;
-    const isNarrow = this.config.width < 900;
-    const measuresPerWindow = isNarrow ? 1 : 2;
+    const measuresPerWindow = 1; // Always 1 measure per window now
     const endMeasure = Math.min(startMeasure + measuresPerWindow, this.measures.length);
     
     // Check if note's measure is in current window
@@ -330,7 +324,7 @@ export class ScoreRenderer {
     this.applyNoteStateStyle(noteHead, this.noteStates[index].state);
 
     if (color === 'green') {
-      noteHead.style.transform = 'scale(1.2)';
+      noteHead.style.transform = 'scale(1.15)';
       noteHead.style.transformOrigin = 'center';
       noteHead.style.transition = 'transform 0.3s ease';
       setTimeout(() => {

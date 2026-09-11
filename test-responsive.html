@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>Responsive Layout Test</title>
+  <script type="module">
+    // Auto-start practice mode with test keyboard for easy verification
+    window.addEventListener('DOMContentLoaded', () => {
+      setTimeout(() => {
+        // Click first song
+        const firstSong = document.querySelector('.song-card');
+        if (firstSong) {
+          firstSong.click();
+          
+          // Enable test mode and start practice
+          setTimeout(() => {
+            const startBtn = document.querySelector('.btn-primary');
+            if (startBtn && startBtn.textContent.includes('시작')) {
+              // Enable test mode first
+              const testModeCheckbox = document.querySelector('input[type="checkbox"]');
+              if (testModeCheckbox && !testModeCheckbox.checked) {
+                testModeCheckbox.click();
+              }
+              setTimeout(() => {
+                startBtn.click();
+              }, 100);
+            }
+          }, 500);
+        }
+      }, 500);
+    });
+  </script>
+  <script>
+    // Layout verification script
+    function checkLayout() {
+      const root = document.documentElement;
+      const scrollWidth = root.scrollWidth;
+      const clientWidth = root.clientWidth;
+      const innerWidth = window.innerWidth;
+      
+      const hasHorizontalOverflow = scrollWidth > innerWidth + 1;
+      
+      console.log('Layout Check:', {
+        scrollWidth,
+        clientWidth,
+        innerWidth,
+        hasHorizontalOverflow,
+        viewport: `${window.innerWidth}x${window.innerHeight}`,
+        orientation: window.innerWidth > window.innerHeight ? 'landscape' : 'portrait'
+      });
+      
+      // Check score container usage
+      const scoreContainer = document.querySelector('.score-container');
+      if (scoreContainer) {
+        const svg = scoreContainer.querySelector('svg');
+        if (svg) {
+          const svgRect = svg.getBoundingClientRect();
+          const containerRect = scoreContainer.getBoundingClientRect();
+          const heightUsage = (svgRect.height / containerRect.height * 100).toFixed(1);
+          console.log('Score container:', {
+            containerHeight: containerRect.height,
+            svgHeight: svgRect.height,
+            heightUsage: `${heightUsage}%`
+          });
+        }
+      }
+      
+      return !hasHorizontalOverflow;
+    }
+    
+    window.checkLayout = checkLayout;
+    
+    // Run check after content loads
+    setTimeout(checkLayout, 2000);
+    window.addEventListener('resize', () => {
+      setTimeout(checkLayout, 100);
+    });
+  </script>
+</head>
+<body>
+  <div id="root"></div>
+  <script type="module" src="/src/main.tsx"></script>
+</body>
+</html>
