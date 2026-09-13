@@ -17,12 +17,11 @@ function loadSettings() {
     const raw = localStorage.getItem(SETTINGS_KEY);
     if (!raw) return defaults;
     const parsed = JSON.parse(raw) as Partial<typeof defaults>;
-    const a4 = Number(parsed.a4Hz);
     return {
       ...defaults,
       ...parsed,
       testMode: false,
-      a4Hz: Number.isFinite(a4) && a4 >= 420 && a4 <= 460 ? a4 : DEFAULT_A4_HZ
+      a4Hz: DEFAULT_A4_HZ
     };
   } catch {
     return defaults;
@@ -71,7 +70,7 @@ interface AppStore {
     showNoteNames: boolean;
     showFingerNumbers: boolean;
     testMode: boolean;
-    /** Concert pitch for A4 in Hz (e.g. 440, 442, 445). */
+    /** Internal reference pitch for A4 in Hz (fixed at 440). ±50 cent tolerance covers 438-445 Hz pianos. */
     a4Hz: number;
   };
   
