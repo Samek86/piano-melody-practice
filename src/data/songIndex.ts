@@ -4,7 +4,6 @@ import { Song } from '../types';
 import schoolBell from './songs/beginner/school-bell.json';
 import twinkleTwinkle from './songs/beginner/twinkle-twinkle.json';
 import butterfly from './songs/beginner/butterfly.json';
-import maryLamb from './songs/beginner/mary-lamb.json';
 import happyBirthday from './songs/beginner/happy-birthday.json';
 import threeBears from './songs/beginner/three-bears.json';
 import mountainRabbit from './songs/beginner/mountain-rabbit.json';
@@ -29,7 +28,6 @@ export const allSongs: Song[] = [
   schoolBell,
   twinkleTwinkle,
   butterfly,
-  maryLamb,
   happyBirthday,
   threeBears,
   mountainRabbit,
