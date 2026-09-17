@@ -180,7 +180,7 @@ export const useAppStore = create<AppStore>((set, get) => ({
           practiceState: 'waiting',
           sustainProgress: 0
         });
-      }, 300);
+      }, 50);
     }
   },
   
