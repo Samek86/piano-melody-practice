@@ -52,6 +52,7 @@ export const PracticeScreen: React.FC = () => {
     setIsScoreReady(false);
     const container = scoreContainerRef.current;
     let tries = 0;
+    let resizeTimeoutId: number | null = null;
 
     const initRenderer = () => {
       if (container.clientWidth === 0 || container.clientHeight === 0) {
@@ -90,18 +91,35 @@ export const PracticeScreen: React.FC = () => {
     initRenderer();
 
     // ResizeObserver to handle orientation changes and container resizing
+    // Debounced to prevent rapid re-renders during iOS rotation
     const resizeObserver = new ResizeObserver(() => {
-      if (container.clientWidth > 0 && container.clientHeight > 0 && scoreRendererRef.current) {
-        scoreRendererRef.current.updateConfig({
-          width: container.clientWidth,
-          height: container.clientHeight
-        });
+      if (resizeTimeoutId !== null) {
+        window.clearTimeout(resizeTimeoutId);
       }
+
+      resizeTimeoutId = window.setTimeout(() => {
+        resizeTimeoutId = null;
+        // Only reject truly invalid dimensions (iOS Safari reports 0 mid-rotation)
+        // Keep threshold low: landscape mode can have score area ~60-90px tall
+        if (container.clientWidth >= 32 && container.clientHeight >= 32 && scoreRendererRef.current) {
+          try {
+            scoreRendererRef.current.updateConfig({
+              width: container.clientWidth,
+              height: container.clientHeight
+            });
+          } catch (error) {
+            console.error('Failed to update score on resize:', error);
+          }
+        }
+      }, 150);
     });
 
     resizeObserver.observe(container);
 
     return () => {
+      if (resizeTimeoutId !== null) {
+        window.clearTimeout(resizeTimeoutId);
+      }
       resizeObserver.disconnect();
       scoreRendererRef.current?.destroy();
     };

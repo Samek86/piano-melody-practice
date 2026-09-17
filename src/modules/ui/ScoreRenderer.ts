@@ -30,6 +30,8 @@ export class ScoreRenderer {
   private currentMeasureWindow: number = 0;
   private timeSignature: [number, number];
   private noteToVexIndexMap: Map<number, { measureIdx: number; noteIdx: number }> = new Map();
+  private isRendering: boolean = false;
+  private pendingRenderConfig: Partial<RenderConfig> | null = null;
 
   constructor(
     container: HTMLElement,
@@ -111,18 +113,29 @@ export class ScoreRenderer {
   }
 
   private render(): void {
-    this.container.innerHTML = '';
-    this.noteToVexIndexMap.clear();
+    // Guard against concurrent renders (iOS Safari rapid resize events)
+    if (this.isRendering) {
+      console.warn('ScoreRenderer: Render already in progress, will defer');
+      return;
+    }
 
     const width = this.config.width;
     const height = this.config.height;
 
-    if (width <= 0 || height <= 0) {
-      console.warn('ScoreRenderer: Container has zero dimensions, deferring render');
+    // Only reject truly invalid dimensions (iOS Safari reports 0 mid-rotation)
+    // Keep threshold low: landscape mode can have score area ~60-90px tall
+    if (width <= 0 || height <= 0 || width < 32 || height < 32) {
+      console.warn('ScoreRenderer: Invalid dimensions, skipping render', { width, height });
       return;
     }
 
+    this.isRendering = true;
+    this.pendingRenderConfig = null; // Clear any pending request, we're rendering now
+
     try {
+      // Safe cleanup: clear container before starting new render
+      this.container.innerHTML = '';
+      this.noteToVexIndexMap.clear();
       const div = document.createElement('div');
       this.container.appendChild(div);
 
@@ -252,6 +265,18 @@ export class ScoreRenderer {
       console.error('ScoreRenderer: Failed to render score:', error);
       this.container.innerHTML = '<div style="padding: 20px; text-align: center; color: #e53e3e;">악보 렌더링 오류가 발생했습니다.</div>';
       throw error;
+    } finally {
+      this.isRendering = false;
+      
+      // Process pending render if one arrived while we were rendering
+      if (this.pendingRenderConfig) {
+        const pending = this.pendingRenderConfig;
+        this.pendingRenderConfig = null;
+        // Use setTimeout to avoid deep recursion and let the call stack clear
+        setTimeout(() => {
+          this.updateConfig(pending);
+        }, 0);
+      }
     }
   }
 
@@ -384,12 +409,31 @@ export class ScoreRenderer {
   }
 
   updateConfig(config: Partial<RenderConfig>): void {
+    // Update config with new values
     this.config = { ...this.config, ...config };
+    
+    // If a render is in progress, queue this config for after it completes
+    if (this.isRendering) {
+      this.pendingRenderConfig = { ...this.pendingRenderConfig, ...config };
+      return;
+    }
+    
     this.render();
   }
 
   destroy(): void {
-    this.container.innerHTML = '';
-    this.renderer = null;
+    // Wait for any in-progress render to complete before destroying
+    if (this.isRendering) {
+      console.warn('ScoreRenderer: Destroying while render in progress');
+    }
+    
+    try {
+      this.container.innerHTML = '';
+      this.noteToVexIndexMap.clear();
+      this.renderer = null;
+      this.isRendering = false;
+    } catch (error) {
+      console.error('ScoreRenderer: Error during destroy:', error);
+    }
   }
 }
