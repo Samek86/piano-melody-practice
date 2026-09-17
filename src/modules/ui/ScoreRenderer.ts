@@ -3,6 +3,7 @@ import { isRest, vexDuration } from '../../utils';
 import { Renderer, Stave, StaveNote, Voice, Formatter, Accidental, Modifier, FretHandFinger } from 'vexflow';
 import { attachDots } from './vexDots';
 import { stavePreludeWidth, vexKeySignature } from './keySignature';
+import { midiToVexKeyForKey, createMeasureState, accidentalForNote } from './accidentals';
 
 export interface RenderConfig {
   width: number;
@@ -113,13 +114,6 @@ export class ScoreRenderer {
     });
   }
 
-  private midiToVexKey(midiNote: number): string {
-    const noteNames = ['c', 'c#', 'd', 'd#', 'e', 'f', 'f#', 'g', 'g#', 'a', 'a#', 'b'];
-    const octave = Math.floor(midiNote / 12) - 1;
-    const noteName = noteNames[midiNote % 12];
-    return `${noteName}/${octave}`;
-  }
-
   private render(): void {
     // Guard against concurrent renders (iOS Safari rapid resize events)
     if (this.isRendering) {
@@ -187,9 +181,12 @@ export class ScoreRenderer {
 
         stave.setContext(context).draw();
 
+        // Create measure state for tracking accidentals
+        const measureState = createMeasureState(this.key);
+
         const vexNotes: StaveNote[] = measure.notes.map((note, noteIdx) => {
           const rest = isRest(note);
-          const keys = [rest ? 'b/4' : this.midiToVexKey(note.pitch ?? 60)];
+          const keys = [rest ? 'b/4' : midiToVexKeyForKey(note.pitch ?? 60, this.key)];
           const duration = vexDuration(note);
 
           const staveNote = new StaveNote({
@@ -199,8 +196,12 @@ export class ScoreRenderer {
           });
           attachDots(staveNote, note.dotted);
 
-          if (!rest && keys[0].includes('#')) {
-            staveNote.addModifier(new Accidental('#'), 0);
+          // Add accidental if needed (for non-rest notes)
+          if (!rest && note.pitch !== undefined) {
+            const accidental = accidentalForNote(note.pitch, this.key, measureState);
+            if (accidental) {
+              staveNote.addModifier(new Accidental(accidental), 0);
+            }
           }
 
           if (!rest && this.config.showFingerNumbers && note.finger) {
