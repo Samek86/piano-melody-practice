@@ -36,3 +36,47 @@ export function midiToNoteNameEng(midi: number): string {
   const octave = Math.floor(Math.round(midi) / 12) - 1;
   return `${noteNames[pitchClassIndex(midi)]}${octave}`;
 }
+
+export function latchDetectedFrequency(
+  previous: number | null,
+  incoming: number | null
+): number | null {
+  if (incoming != null && Number.isFinite(incoming) && incoming > 0) {
+    return incoming;
+  }
+  return previous;
+}
+
+export function isRest(note: { rest?: boolean }): boolean {
+  return note.rest === true;
+}
+
+const DURATION_TO_VEX: Record<number, string> = {
+  1: 'w',
+  2: 'h',
+  4: 'q',
+  8: '8',
+  16: '16'
+};
+
+export function vexDuration(note: {
+  duration: number;
+  dotted?: boolean;
+  rest?: boolean;
+  pitch?: number;
+}): string {
+  const base = DURATION_TO_VEX[note.duration] ?? 'q';
+  const dots = note.dotted ? 'd' : '';
+  const type = isRest(note) ? 'r' : '';
+  return `${base}${dots}${type}`;
+}
+
+export function firstPlayableNoteIndex(
+  notes: Array<{ rest?: boolean }>,
+  fromIndex: number
+): number {
+  for (let i = fromIndex; i < notes.length; i++) {
+    if (!isRest(notes[i])) return i;
+  }
+  return -1;
+}

@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { Song } from '../types';
-import { DEFAULT_A4_HZ } from '../utils';
+import { DEFAULT_A4_HZ, firstPlayableNoteIndex, latchDetectedFrequency } from '../utils';
 
 const SETTINGS_KEY = 'piano-practice-settings';
 
@@ -86,6 +86,7 @@ interface AppStore {
   onNoteMatched: () => void;
   onWrongNote: () => void;
   advanceToNextNote: () => void;
+  skipRests: () => void;
   
   resetSession: () => void;
   setError: (error: string | null) => void;
@@ -125,7 +126,9 @@ export const useAppStore = create<AppStore>((set, get) => ({
     correctNotes: 0,
     incorrectAttempts: 0,
     isListening: true,
-    sustainProgress: 0
+    sustainProgress: 0,
+    detectedPitch: null,
+    detectedClarity: 0
   }),
   
   pausePractice: () => set({
@@ -148,11 +151,15 @@ export const useAppStore = create<AppStore>((set, get) => ({
     settings: { ...get().settings, testMode: false }
   }),
   
-  onPitchDetected: (frequency, clarity) => set({
-    detectedPitch: frequency,
-    detectedClarity: clarity,
-    practiceState: frequency ? 'detecting' : 'waiting'
-  }),
+  onPitchDetected: (frequency, clarity) => {
+    const prev = get();
+    const valid = frequency != null && Number.isFinite(frequency) && frequency > 0;
+    set({
+      detectedPitch: latchDetectedFrequency(prev.detectedPitch, frequency),
+      detectedClarity: valid ? clarity : prev.detectedClarity,
+      practiceState: valid ? 'detecting' : 'waiting'
+    });
+  },
   
   onNoteMatched: () => {
     const { correctNotes, currentNoteIndex, currentSong } = get();
@@ -190,6 +197,22 @@ export const useAppStore = create<AppStore>((set, get) => ({
   advanceToNextNote: () => {
     set({
       currentNoteIndex: get().currentNoteIndex + 1,
+      practiceState: 'waiting',
+      sustainProgress: 0
+    });
+  },
+
+  skipRests: () => {
+    const { currentSong, currentNoteIndex } = get();
+    if (!currentSong) return;
+    const next = firstPlayableNoteIndex(currentSong.notes, currentNoteIndex);
+    if (next === currentNoteIndex) return;
+    if (next < 0) {
+      set({ appState: 'complete', isListening: false });
+      return;
+    }
+    set({
+      currentNoteIndex: next,
       practiceState: 'waiting',
       sustainProgress: 0
     });

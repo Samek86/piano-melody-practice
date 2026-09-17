@@ -22,6 +22,10 @@ dist-ssr/
 .env.local
 .env.*.local
 
+# Local deploy notes (server IP / SSH paths — never commit)
+piano-tsutaai-com-배포방법.md
+deploy-piano.sh
+
 # Test coverage
 coverage/
 .nyc_output/

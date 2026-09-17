@@ -1,13 +1,16 @@
-import { MatchResult } from '../../types';
-import { midiToFrequency, calculateCentsOff, frequencyToMidi } from '../../utils';
+import type { MatchResult } from '../../types';
+import { midiToFrequency, calculateCentsOff, frequencyToMidi } from '../../utils.ts';
 
 export interface NoteMatchingConfig {
   toleranceCents: number;
   sustainWindowMs: number;
   debounceMs: number;
   a4Hz?: number;
-  silenceThresholdMs?: number; // sustained silence duration to clear release gate
 }
+
+const RELEASE_DIP_RATIO = 0.75;
+const ATTACK_RATIO = 1.25;
+const QUIET_PEAK = 0.02;
 
 export class NoteMatcher {
   private config: NoteMatchingConfig;
@@ -16,7 +19,9 @@ export class NoteMatcher {
   private lastMatchTime: number = 0;
   private lastMatchedPitchClass: number | null = null;
   private requiresRelease: boolean = false;
-  private silenceStartTime: number | null = null;
+  private releasedSeen: boolean = false;
+  private peakAtMatch: number = 0;
+  private minPeakSinceMatch: number = 0;
 
   constructor(config: NoteMatchingConfig) {
     this.config = config;
@@ -25,12 +30,9 @@ export class NoteMatcher {
   setTargetNote(midiNote: number): void {
     this.currentTargetNote = midiNote;
     this.matchStartTime = null;
-    // Only clear release requirement when the new target's pitch class differs
-    // from the last matched pitch class. For repeated identical notes (C-C-C),
-    // we must keep the release gate active.
     const newPitchClass = this.getPitchClass(midiNote);
     if (this.lastMatchedPitchClass !== null && newPitchClass !== this.lastMatchedPitchClass) {
-      this.requiresRelease = false;
+      this.clearReleaseGate();
     }
   }
 
@@ -42,83 +44,81 @@ export class NoteMatcher {
     return this.getPitchClass(detected) === this.getPitchClass(target);
   }
 
-  notifySilence(): void {
-    const now = Date.now();
-    const silenceThreshold = this.config.silenceThresholdMs ?? 80;
-
-    if (!this.silenceStartTime) {
-      this.silenceStartTime = now;
-    }
-
-    const silenceDuration = now - this.silenceStartTime;
-    
-    // Clear release gate after sustained silence
-    if (silenceDuration >= silenceThreshold) {
-      this.requiresRelease = false;
-    }
-
-    this.matchStartTime = null;
+  private clearReleaseGate(): void {
+    this.requiresRelease = false;
+    this.releasedSeen = false;
   }
 
-  checkMatch(detectedFrequency: number | null): MatchResult {
+  private armReleaseGate(peakLevel: number): void {
+    this.requiresRelease = true;
+    this.releasedSeen = false;
+    this.peakAtMatch = peakLevel;
+    this.minPeakSinceMatch = peakLevel;
+  }
+
+  private updateReleaseGate(detectedFrequency: number | null, peakLevel: number): void {
+    if (!this.requiresRelease) return;
+
+    this.minPeakSinceMatch = Math.min(this.minPeakSinceMatch, peakLevel);
+
+    const noPitch = !detectedFrequency;
+    const quiet = peakLevel <= QUIET_PEAK;
+    const dipped = this.peakAtMatch > 0 && peakLevel <= this.peakAtMatch * RELEASE_DIP_RATIO;
+    if (noPitch || quiet || dipped) {
+      this.releasedSeen = true;
+    }
+
+    const trough = Math.max(this.minPeakSinceMatch, 0.005);
+    const strongEnough = peakLevel >= Math.max(0.035, this.peakAtMatch * 0.25);
+    if (this.releasedSeen && peakLevel >= trough * ATTACK_RATIO && strongEnough) {
+      this.clearReleaseGate();
+    }
+  }
+
+  checkMatch(detectedFrequency: number | null, peakLevel: number = 0): MatchResult {
     const now = Date.now();
 
-    // Debounce
+    if (!this.currentTargetNote) {
+      this.matchStartTime = null;
+      this.clearReleaseGate();
+      return this.createResult(false, 0);
+    }
+
+    this.updateReleaseGate(detectedFrequency, peakLevel);
+
     if (now - this.lastMatchTime < this.config.debounceMs) {
       return this.createResult(false, 0);
     }
 
-    if (!this.currentTargetNote) {
-      this.matchStartTime = null;
-      this.silenceStartTime = null;
-      this.requiresRelease = false;
-      return this.createResult(false, 0);
-    }
-
-    // If no frequency detected (silence), track it for release gate clearing
     if (!detectedFrequency) {
-      this.notifySilence();
+      this.matchStartTime = null;
       return this.createResult(false, 0);
     }
 
-    // Pitch detected - reset silence tracking
-    this.silenceStartTime = null;
-
-    // Convert detected frequency to MIDI for pitch class comparison
     const a4 = this.config.a4Hz ?? 440;
     const detectedMidi = frequencyToMidi(detectedFrequency, a4);
     const detectedPitchClass = this.getPitchClass(detectedMidi);
-    
-    // Check if pitch class matches (octave-invariant)
     const isPitchClassCorrect = this.isPitchClassMatch(detectedMidi, this.currentTargetNote);
-    
+
     if (!isPitchClassCorrect) {
       this.matchStartTime = null;
-      // If we detect a different pitch class, clear release requirement
-      this.requiresRelease = false;
-      // Calculate cents off from exact target for feedback
+      this.clearReleaseGate();
       const targetFreq = midiToFrequency(this.currentTargetNote, a4);
       const centsOff = calculateCentsOff(detectedFrequency, targetFreq);
       return this.createResult(false, 0, detectedMidi, centsOff);
     }
 
-    // Pitch class matches! Check if we need a release first
     if (this.requiresRelease && detectedPitchClass === this.lastMatchedPitchClass) {
-      // Same pitch class held without release - block matching
       this.matchStartTime = null;
       const targetFreq = midiToFrequency(this.currentTargetNote, a4);
       const centsOff = calculateCentsOff(detectedFrequency, targetFreq);
       return this.createResult(false, 0, detectedMidi, centsOff);
     }
 
-    // If we reach here with requiresRelease=true, it means we detected a different
-    // pitch class that still matches (shouldn't happen), so clear the flag
-    if (this.requiresRelease && detectedPitchClass !== this.lastMatchedPitchClass) {
-      this.requiresRelease = false;
+    if (this.requiresRelease) {
+      this.clearReleaseGate();
     }
 
-    // Pitch class matches! Now find the closest octave of the target note
-    // to calculate meaningful cents offset
     const targetPitchClass = this.getPitchClass(this.currentTargetNote);
     const detectedOctave = Math.floor(detectedMidi / 12);
     const closestTargetInDetectedOctave = detectedOctave * 12 + targetPitchClass;
@@ -140,7 +140,7 @@ export class NoteMatcher {
         this.matchStartTime = null;
         // Record the matched pitch class and require release for next identical note
         this.lastMatchedPitchClass = detectedPitchClass;
-        this.requiresRelease = true;
+        this.armReleaseGate(peakLevel);
         return this.createResult(true, sustainedMs, detectedMidi, centsOff);
       }
 
@@ -173,7 +173,7 @@ export class NoteMatcher {
       // since the next tap will be a new action
       const pitchClass = this.getPitchClass(midiNote);
       this.lastMatchedPitchClass = pitchClass;
-      this.requiresRelease = false;
+      this.clearReleaseGate();
       return this.createResult(true, 0, midiNote, 0);
     } else {
       return this.createResult(false, 0, midiNote, undefined);
@@ -199,7 +199,8 @@ export class NoteMatcher {
     this.matchStartTime = null;
     this.lastMatchTime = 0;
     this.lastMatchedPitchClass = null;
-    this.requiresRelease = false;
-    this.silenceStartTime = null;
+    this.peakAtMatch = 0;
+    this.minPeakSinceMatch = 0;
+    this.clearReleaseGate();
   }
 }

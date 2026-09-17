@@ -4,12 +4,13 @@ export type Difficulty = 'beginner' | 'easy' | 'medium';
 export type Origin = 'korean' | 'japanese';
 
 export interface Note {
-  pitch: number;        // MIDI note number (60 = C4)
+  pitch?: number;       // MIDI note number (60 = C4). Omit for rests.
   duration: number;     // 4 = quarter note, 2 = half note, 8 = eighth note
   finger?: number;      // Finger number 1-5 (NEW: user requirement)
   dotted?: boolean;
   tie?: boolean;
   lyric?: string;
+  rest?: boolean;       // { rest: true, duration: 4 } = quarter rest
 }
 
 export interface Song {

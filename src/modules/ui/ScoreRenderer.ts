@@ -1,4 +1,5 @@
 import { Note } from '../../types';
+import { isRest, vexDuration } from '../../utils';
 import { Renderer, Stave, StaveNote, Voice, Formatter, Accidental, Modifier, FretHandFinger } from 'vexflow';
 
 export interface RenderConfig {
@@ -62,7 +63,7 @@ export class ScoreRenderer {
     let measureIndex = 0;
 
     for (const note of this.notes) {
-      const noteBeats = beatValue / note.duration;
+      const noteBeats = (beatValue / note.duration) * (note.dotted ? 1.5 : 1);
       
       // Determine capacity for this measure
       const measureCapacity = measureIndex === 0 && this.pickupBeats !== undefined 
@@ -112,17 +113,6 @@ export class ScoreRenderer {
     const octave = Math.floor(midiNote / 12) - 1;
     const noteName = noteNames[midiNote % 12];
     return `${noteName}/${octave}`;
-  }
-
-  private durationToVex(duration: number): string {
-    const durationMap: { [key: number]: string } = {
-      1: 'w',
-      2: 'h',
-      4: 'q',
-      8: '8',
-      16: '16'
-    };
-    return durationMap[duration] || 'q';
   }
 
   private render(): void {
@@ -189,8 +179,9 @@ export class ScoreRenderer {
         stave.setContext(context).draw();
 
         const vexNotes: StaveNote[] = measure.notes.map((note, noteIdx) => {
-          const keys = [this.midiToVexKey(note.pitch)];
-          const duration = this.durationToVex(note.duration);
+          const rest = isRest(note);
+          const keys = [rest ? 'b/4' : this.midiToVexKey(note.pitch ?? 60)];
+          const duration = vexDuration(note);
 
           const staveNote = new StaveNote({
             keys,
@@ -198,11 +189,11 @@ export class ScoreRenderer {
             clef: 'treble'
           });
 
-          if (keys[0].includes('#')) {
+          if (!rest && keys[0].includes('#')) {
             staveNote.addModifier(new Accidental('#'), 0);
           }
 
-          if (this.config.showFingerNumbers && note.finger) {
+          if (!rest && this.config.showFingerNumbers && note.finger) {
             const fingering = new FretHandFinger(String(note.finger));
             fingering.setPosition(Modifier.Position.ABOVE);
             staveNote.addModifier(fingering, 0);
@@ -304,9 +295,9 @@ export class ScoreRenderer {
       const globalIndex = parseInt((staveNote as SVGElement).getAttribute('data-note-index') || '-1', 10);
       
       if (globalIndex >= 0 && globalIndex < this.noteStates.length) {
-        const noteHead = staveNote.querySelector('.vf-notehead') as SVGElement;
-        if (noteHead) {
-          this.applyNoteStateStyle(noteHead, this.noteStates[globalIndex].state);
+        const glyph = this.glyphElement(staveNote);
+        if (glyph) {
+          this.applyNoteStateStyle(glyph, this.noteStates[globalIndex].state);
         }
       }
     });
@@ -362,17 +353,17 @@ export class ScoreRenderer {
     const staveNote = svg.querySelector(`.vf-stavenote[data-note-index="${index}"]`);
     if (!staveNote) return;
 
-    const noteHead = staveNote.querySelector('.vf-notehead') as SVGElement;
-    if (!noteHead) return;
+    const glyph = this.glyphElement(staveNote);
+    if (!glyph) return;
 
-    this.applyNoteStateStyle(noteHead, this.noteStates[index].state);
+    this.applyNoteStateStyle(glyph, this.noteStates[index].state);
 
     if (color === 'green') {
-      noteHead.style.transform = 'scale(1.15)';
-      noteHead.style.transformOrigin = 'center';
-      noteHead.style.transition = 'transform 0.3s ease';
+      glyph.style.transform = 'scale(1.15)';
+      glyph.style.transformOrigin = 'center';
+      glyph.style.transition = 'transform 0.3s ease';
       setTimeout(() => {
-        noteHead.style.transform = 'scale(1)';
+        glyph.style.transform = 'scale(1)';
       }, 300);
     }
   }
@@ -391,11 +382,19 @@ export class ScoreRenderer {
     const staveNote = svg.querySelector(`.vf-stavenote[data-note-index="${index}"]`);
     if (!staveNote) return;
 
-    const noteHead = staveNote.querySelector('.vf-notehead') as SVGElement;
-    if (noteHead) {
-      this.applyNoteStateStyle(noteHead, this.noteStates[index].state);
-      noteHead.style.transform = 'scale(1)';
+    const glyph = this.glyphElement(staveNote);
+    if (glyph) {
+      this.applyNoteStateStyle(glyph, this.noteStates[index].state);
+      glyph.style.transform = 'scale(1)';
     }
+  }
+
+  private glyphElement(staveNote: Element): SVGElement | null {
+    return (
+      (staveNote.querySelector('.vf-notehead') as SVGElement | null) ??
+      (staveNote.querySelector('.vf-rest') as SVGElement | null) ??
+      (staveNote.querySelector('path') as SVGElement | null)
+    );
   }
 
   private updateMeasureWindow(currentNoteIndex: number): void {

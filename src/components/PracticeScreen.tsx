@@ -6,7 +6,7 @@ import { takeBootstrappedAudioCapture } from '../modules/audio/audioSession';
 import { PitchDetector } from '../modules/audio/PitchDetector';
 import { NoteMatcher } from '../modules/game/NoteMatcher';
 import { SoftKeyboard } from './SoftKeyboard';
-import { midiToNoteName, frequencyToMidi } from '../utils';
+import { midiToNoteName, frequencyToMidi, isRest, firstPlayableNoteIndex } from '../utils';
 
 export const PracticeScreen: React.FC = () => {
   const {
@@ -20,6 +20,7 @@ export const PracticeScreen: React.FC = () => {
     onPitchDetected,
     onNoteMatched,
     onWrongNote,
+    skipRests,
     appState
   } = useAppStore();
 
@@ -183,11 +184,14 @@ export const PracticeScreen: React.FC = () => {
     noteMatcherRef.current = new NoteMatcher({
       toleranceCents: settings.toleranceCents,
       sustainWindowMs: settings.sustainWindowMs,
-      debounceMs: 100,
-      a4Hz: settings.a4Hz,
-      silenceThresholdMs: 80 // sustained silence duration to clear release gate
+      debounceMs: 70,
+      a4Hz: settings.a4Hz
     });
-    noteMatcherRef.current.setTargetNote(currentSong.notes[0].pitch);
+    const firstPlayable = firstPlayableNoteIndex(currentSong.notes, 0);
+    const firstPitch = firstPlayable >= 0 ? currentSong.notes[firstPlayable].pitch : undefined;
+    if (firstPitch != null) {
+      noteMatcherRef.current.setTargetNote(firstPitch);
+    }
 
     // Paint score first, then start mic
     const deferAudio = window.setTimeout(() => { void initializeAudio(); }, 100);
@@ -207,14 +211,25 @@ export const PracticeScreen: React.FC = () => {
 
   React.useEffect(() => {
     if (!currentSong || !noteMatcherRef.current) return;
+    if (currentNoteIndex >= currentSong.notes.length) return;
 
-    // Update target note when index changes
-    if (currentNoteIndex < currentSong.notes.length) {
-      noteMatcherRef.current.setTargetNote(currentSong.notes[currentNoteIndex].pitch);
-      scoreRendererRef.current?.clearHighlight(currentNoteIndex - 1);
-      scoreRendererRef.current?.highlightNote(currentNoteIndex, 'blue');
+    const nextPlayable = firstPlayableNoteIndex(currentSong.notes, currentNoteIndex);
+    if (nextPlayable !== currentNoteIndex) {
+      const end = nextPlayable < 0 ? currentSong.notes.length : nextPlayable;
+      for (let i = currentNoteIndex; i < end; i++) {
+        scoreRendererRef.current?.highlightNote(i, 'green');
+      }
+      skipRests();
+      return;
     }
-  }, [currentNoteIndex, currentSong]);
+
+    const pitch = currentSong.notes[currentNoteIndex].pitch;
+    if (pitch != null) {
+      noteMatcherRef.current.setTargetNote(pitch);
+    }
+    scoreRendererRef.current?.clearHighlight(currentNoteIndex - 1);
+    scoreRendererRef.current?.highlightNote(currentNoteIndex, 'blue');
+  }, [currentNoteIndex, currentSong, skipRests]);
 
   const startAudioLoop = () => {
     const loop = () => {
@@ -273,7 +288,7 @@ export const PracticeScreen: React.FC = () => {
         }
 
         // Always call checkMatch to handle both pitch detection and silence
-        const matchResult = noteMatcherRef.current.checkMatch(frequency);
+        const matchResult = noteMatcherRef.current.checkMatch(frequency, level.peak);
         const noteIdx = currentNoteIndexRef.current;
 
         if (matchResult.matched) {
@@ -346,6 +361,13 @@ export const PracticeScreen: React.FC = () => {
 
   const progress = ((currentNoteIndex / currentSong.notes.length) * 100);
   const currentNote = currentSong.notes[currentNoteIndex];
+  const targetLabel = currentNote
+    ? isRest(currentNote)
+      ? '쉼표'
+      : currentNote.pitch != null
+        ? midiToNoteName(currentNote.pitch)
+        : '?'
+    : '';
 
   if (renderError) {
     return (
@@ -478,12 +500,12 @@ export const PracticeScreen: React.FC = () => {
           {detectedPitch && Number.isFinite(detectedPitch) && detectedPitch > 0 && Number.isFinite(frequencyToMidi(detectedPitch, settings.a4Hz)) ? (
             <>
               🎵 감지: {midiToNoteName(frequencyToMidi(detectedPitch, settings.a4Hz))}
-              {currentNote && ` (목표: ${midiToNoteName(currentNote.pitch)})`}
+              {currentNote && ` (목표: ${targetLabel})`}
             </>
           ) : (
             <>
-              {currentNote && `목표: ${midiToNoteName(currentNote.pitch)}`}
-              {currentNote?.finger && ` | 손가락: ${currentNote.finger}번`}
+              {currentNote && `목표: ${targetLabel}`}
+              {currentNote?.finger && !isRest(currentNote) && ` | 손가락: ${currentNote.finger}번`}
             </>
           )}
         </div>
