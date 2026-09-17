@@ -18,6 +18,7 @@ interface NoteStateInfo {
 interface Measure {
   notes: Note[];
   startIndex: number;
+  beatCount: number; // Actual beats in this measure (may be less than full for pickup or final measure)
 }
 
 export class ScoreRenderer {
@@ -29,6 +30,7 @@ export class ScoreRenderer {
   private noteStates: NoteStateInfo[] = [];
   private currentMeasureWindow: number = 0;
   private timeSignature: [number, number];
+  private pickupBeats: number | undefined;
   private noteToVexIndexMap: Map<number, { measureIdx: number; noteIdx: number }> = new Map();
   private isRendering: boolean = false;
   private pendingRenderConfig: Partial<RenderConfig> | null = null;
@@ -37,12 +39,14 @@ export class ScoreRenderer {
     container: HTMLElement,
     notes: Note[],
     config: RenderConfig,
-    timeSignature: [number, number] = [4, 4]
+    timeSignature: [number, number] = [4, 4],
+    pickupBeats?: number
   ) {
     this.container = container;
     this.notes = notes;
     this.config = config;
     this.timeSignature = timeSignature;
+    this.pickupBeats = pickupBeats;
     this.splitIntoMeasures();
     this.initializeNoteStates();
     this.render();
@@ -51,22 +55,29 @@ export class ScoreRenderer {
   private splitIntoMeasures(): void {
     const beatsPerMeasure = this.timeSignature[0];
     const beatValue = this.timeSignature[1];
-    const totalBeatsPerMeasure = beatsPerMeasure;
 
     let currentMeasure: Note[] = [];
     let currentBeats = 0;
     let noteIndex = 0;
+    let measureIndex = 0;
 
     for (const note of this.notes) {
       const noteBeats = beatValue / note.duration;
       
-      if (currentBeats + noteBeats > totalBeatsPerMeasure && currentMeasure.length > 0) {
+      // Determine capacity for this measure
+      const measureCapacity = measureIndex === 0 && this.pickupBeats !== undefined 
+        ? this.pickupBeats 
+        : beatsPerMeasure;
+      
+      if (currentBeats + noteBeats > measureCapacity && currentMeasure.length > 0) {
         this.measures.push({
           notes: currentMeasure,
-          startIndex: noteIndex - currentMeasure.length
+          startIndex: noteIndex - currentMeasure.length,
+          beatCount: currentBeats
         });
         currentMeasure = [];
         currentBeats = 0;
+        measureIndex++;
       }
 
       currentMeasure.push(note);
@@ -74,10 +85,12 @@ export class ScoreRenderer {
       noteIndex++;
     }
 
+    // Push final measure (may be incomplete, which is correct for anacrusis pieces)
     if (currentMeasure.length > 0) {
       this.measures.push({
         notes: currentMeasure,
-        startIndex: noteIndex - currentMeasure.length
+        startIndex: noteIndex - currentMeasure.length,
+        beatCount: currentBeats
       });
     }
   }
@@ -204,8 +217,9 @@ export class ScoreRenderer {
           return staveNote;
         });
 
+        // Use actual beat count for this measure (handles pickup and incomplete final measures)
         const voice = new Voice({
-          numBeats: this.timeSignature[0],
+          numBeats: measure.beatCount,
           beatValue: this.timeSignature[1]
         });
         voice.setStrict(false);
