@@ -315,16 +315,17 @@ export class ScoreRenderer {
 
   private applyNoteStateStyle(noteHead: SVGElement, state: NoteState): void {
     const styles = {
-      pending: { fill: '#d1d5db', stroke: '#9ca3af' },
-      current: { fill: '#3b82f6', stroke: '#1d4ed8' },
-      completed: { fill: '#10b981', stroke: '#059669' },
-      wrong: { fill: '#ef4444', stroke: '#dc2626' }
+      pending: { fill: '#d1d5db', stroke: '#9ca3af', opacity: '1' },
+      current: { fill: '#3b82f6', stroke: '#1d4ed8', opacity: '1' },
+      completed: { fill: '#6b7280', stroke: '#4b5563', opacity: '0.5' },
+      wrong: { fill: '#ef4444', stroke: '#dc2626', opacity: '1' }
     };
 
     const style = styles[state];
     noteHead.style.fill = style.fill;
     noteHead.style.stroke = style.stroke;
     noteHead.style.strokeWidth = '4';
+    noteHead.style.opacity = style.opacity;
   }
 
   highlightNote(index: number, color: 'blue' | 'green' | 'red'): void {
