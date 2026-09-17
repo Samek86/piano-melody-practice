@@ -66,9 +66,9 @@ export class AudioCapture {
 
     const sampleRate = this.audioContext.sampleRate;
     const binHz = sampleRate / this.analyser.fftSize;
-    // Raise minBin to 150 Hz to avoid false D2 detections from low-frequency rumble
-    // (phone handling, HVAC, traffic noise commonly peaks at 60-100 Hz)
-    const minBin = Math.max(1, Math.floor(150 / binHz));
+    // Reject below 90 Hz to avoid D2 (~73 Hz) / rumble false 레; allow D3+ (~147 Hz)
+    const MIN_RELIABLE_FREQ_HZ = 90;
+    const minBin = Math.max(1, Math.floor(MIN_RELIABLE_FREQ_HZ / binHz));
     const maxBin = Math.min(this.freqBuffer.length - 1, Math.floor(2000 / binHz));
 
     let bestBin = -1;
@@ -87,12 +87,14 @@ export class AudioCapture {
     
     const frequency = bestBin * binHz;
     
-    // Additional validation: check for spectral clarity
-    // Real piano notes have clear peaks; rumble has broad low-frequency energy
-    const peakProminence = this.calculatePeakProminence(bestBin, bestDb);
-    if (peakProminence < 6) {
-      // Not a clear enough peak, likely noise
-      return { peakDb: bestDb, frequency: null };
+    // For frequencies 90-150 Hz, require clear spectral peak to avoid rumble
+    // (Real piano notes have clear peaks; rumble has broad low-frequency energy)
+    if (frequency < 150) {
+      const peakProminence = this.calculatePeakProminence(bestBin, bestDb);
+      if (peakProminence < 6) {
+        // Not a clear enough peak, likely noise
+        return { peakDb: bestDb, frequency: null };
+      }
     }
     
     return { peakDb: bestDb, frequency };

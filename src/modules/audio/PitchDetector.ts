@@ -57,17 +57,22 @@ export class PitchDetector {
       clarity = 0.75;
     }
 
-    // Additional validation for low frequencies to prevent false D2 detections
-    // from rumble/handling noise
+    // Reject below ~90 Hz to avoid D2 (~73 Hz) / rumble false 레; allow D3+ (~147 Hz)
+    const MIN_RELIABLE_FREQ_HZ = 90;
+    if (frequency && frequency < MIN_RELIABLE_FREQ_HZ) {
+      // Below D3, likely rumble/handling noise
+      return { frequency: null, clarity: 0, timestamp: now };
+    }
+    
+    // For frequencies 90-150 Hz (D3 range), require harmonic structure
     if (frequency && frequency < 150) {
-      // For low frequencies, require higher confidence
       const spectralClarity = this.calculateSpectralClarity(audioBuffer, frequency);
-      if (spectralClarity < 0.3) {
-        // Likely noise, not a real low piano note
+      if (spectralClarity < 0.25) {
+        // Lacks harmonic structure, likely noise
         return { frequency: null, clarity: 0, timestamp: now };
       }
-      // Reduce clarity score for low frequencies
-      clarity *= 0.8;
+      // Slightly reduce clarity score for low frequencies
+      clarity *= 0.85;
     }
 
     return {
@@ -80,8 +85,9 @@ export class PitchDetector {
   private detectPitchAutocorrelation(buffer: Float32Array): number | null {
     const sampleRate = this.config.sampleRate;
     const bufferSize = buffer.length;
-    // Avoid low frequencies that are prone to false D2 detections
-    const effectiveMinFreq = Math.max(this.minFrequency, 150);
+    // Reject below ~90 Hz to avoid D2 (~73 Hz) / rumble false 레; allow D3+ (~147 Hz)
+    const MIN_RELIABLE_FREQ_HZ = 90;
+    const effectiveMinFreq = Math.max(this.minFrequency, MIN_RELIABLE_FREQ_HZ);
     const minLag = Math.floor(sampleRate / this.maxFrequency);
     const maxLag = Math.floor(sampleRate / effectiveMinFreq);
 
