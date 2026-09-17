@@ -6,7 +6,7 @@ import { Origin, Difficulty } from '../types';
 type FilterType = 'all' | Origin | Difficulty;
 
 export const SongSelection: React.FC = () => {
-  const { selectSong } = useAppStore();
+  const { selectSong, settings, updateSettings } = useAppStore();
   const [filter, setFilter] = React.useState<FilterType>('beginner');
 
   const filteredSongs = React.useMemo(() => {
@@ -24,6 +24,18 @@ export const SongSelection: React.FC = () => {
         <p style={{ textAlign: 'center', color: '#718096', marginBottom: '12px' }}>
           연습할 곡을 선택하세요
         </p>
+
+        <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '16px' }}>
+          <label style={{ display: 'flex', alignItems: 'center', cursor: 'pointer', fontSize: '0.95rem', gap: '8px' }}>
+            <input
+              type="checkbox"
+              checked={settings.showFingerNumbers}
+              onChange={(e) => updateSettings({ showFingerNumbers: e.target.checked })}
+              style={{ cursor: 'pointer', width: '18px', height: '18px' }}
+            />
+            <span>손가락 번호 표시</span>
+          </label>
+        </div>
 
         <div className="filter-buttons">
           <button

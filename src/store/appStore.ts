@@ -9,7 +9,7 @@ function loadSettings() {
     toleranceCents: 50,
     sustainWindowMs: 200,
     showNoteNames: true,
-    showFingerNumbers: true,
+    showFingerNumbers: false,
     testMode: false,
     a4Hz: DEFAULT_A4_HZ
   };
