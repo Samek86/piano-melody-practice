@@ -14,13 +14,16 @@
     { "pitch": 67, "duration": 4, "finger": 5 },
     { "pitch": 69, "duration": 4, "finger": 1 },
     { "pitch": 67, "duration": 4, "finger": 5 },
+
     { "pitch": 65, "duration": 4, "finger": 4 },
     { "pitch": 64, "duration": 4, "finger": 3 },
     { "pitch": 62, "duration": 2, "finger": 2 },
+
     { "pitch": 60, "duration": 4, "finger": 1 },
     { "pitch": 60, "duration": 4, "finger": 1 },
     { "pitch": 62, "duration": 4, "finger": 2 },
     { "pitch": 64, "duration": 4, "finger": 3 },
+
     { "pitch": 62, "duration": 2, "finger": 2 }
   ],
   "tags": ["동요", "일본", "입문", "동물"],

@@ -13,9 +13,11 @@
     { "pitch": 60, "duration": 4, "finger": 1 },
     { "pitch": 62, "duration": 4, "finger": 2 },
     { "pitch": 64, "duration": 4, "finger": 3 },
+
     { "pitch": 67, "duration": 4, "finger": 5 },
     { "pitch": 67, "duration": 4, "finger": 5 },
     { "pitch": 64, "duration": 4, "finger": 3 },
+
     { "pitch": 62, "duration": 4, "finger": 2 },
     { "pitch": 60, "duration": 2, "finger": 1 }
   ],

@@ -6,144 +6,44 @@
   "composer": "Traditional",
   "difficulty": "beginner",
   "tempo": 110,
-  "timeSignature": [
-    3,
-    4
-  ],
+  "timeSignature": [3, 4],
   "key": "C",
   "pickupBeats": 1,
   "notes": [
-    {
-      "pitch": 67,
-      "duration": 8,
-      "finger": 5
-    },
-    {
-      "pitch": 67,
-      "duration": 8,
-      "finger": 5
-    },
-    {
-      "pitch": 69,
-      "duration": 4,
-      "finger": 1
-    },
-    {
-      "pitch": 67,
-      "duration": 4,
-      "finger": 5
-    },
-    {
-      "pitch": 72,
-      "duration": 4,
-      "finger": 3
-    },
-    {
-      "pitch": 71,
-      "duration": 2,
-      "finger": 2
-    },
-    {
-      "pitch": 67,
-      "duration": 8,
-      "finger": 5
-    },
-    {
-      "pitch": 67,
-      "duration": 8,
-      "finger": 5
-    },
-    {
-      "pitch": 69,
-      "duration": 4,
-      "finger": 1
-    },
-    {
-      "pitch": 67,
-      "duration": 4,
-      "finger": 5
-    },
-    {
-      "pitch": 74,
-      "duration": 4,
-      "finger": 4
-    },
-    {
-      "pitch": 72,
-      "duration": 2,
-      "finger": 3
-    },
-    {
-      "pitch": 67,
-      "duration": 8,
-      "finger": 5
-    },
-    {
-      "pitch": 67,
-      "duration": 8,
-      "finger": 5
-    },
-    {
-      "pitch": 79,
-      "duration": 4,
-      "finger": 5
-    },
-    {
-      "pitch": 76,
-      "duration": 4,
-      "finger": 4
-    },
-    {
-      "pitch": 72,
-      "duration": 4,
-      "finger": 3
-    },
-    {
-      "pitch": 71,
-      "duration": 4,
-      "finger": 2
-    },
-    {
-      "pitch": 69,
-      "duration": 2,
-      "finger": 1
-    },
-    {
-      "pitch": 77,
-      "duration": 8,
-      "finger": 5
-    },
-    {
-      "pitch": 77,
-      "duration": 8,
-      "finger": 5
-    },
-    {
-      "pitch": 76,
-      "duration": 4,
-      "finger": 4
-    },
-    {
-      "pitch": 72,
-      "duration": 4,
-      "finger": 3
-    },
-    {
-      "pitch": 74,
-      "duration": 4,
-      "finger": 4
-    },
-    {
-      "pitch": 72,
-      "duration": 2,
-      "finger": 3
-    }
+    { "pitch": 67, "duration": 8, "finger": 2 },
+    { "pitch": 67, "duration": 8, "finger": 2 },
+
+    { "pitch": 69, "duration": 4, "finger": 3 },
+    { "pitch": 67, "duration": 4, "finger": 2 },
+    { "pitch": 72, "duration": 4, "finger": 5 },
+
+    { "pitch": 71, "duration": 2, "finger": 4 },
+    { "pitch": 67, "duration": 8, "finger": 2 },
+    { "pitch": 67, "duration": 8, "finger": 2 },
+
+    { "pitch": 69, "duration": 4, "finger": 3 },
+    { "pitch": 67, "duration": 4, "finger": 2 },
+    { "pitch": 74, "duration": 4, "finger": 5 },
+
+    { "pitch": 72, "duration": 2, "finger": 4 },
+    { "pitch": 67, "duration": 8, "finger": 1 },
+    { "pitch": 67, "duration": 8, "finger": 1 },
+
+    { "pitch": 79, "duration": 4, "finger": 5 },
+    { "pitch": 76, "duration": 4, "finger": 3 },
+    { "pitch": 72, "duration": 4, "finger": 2 },
+
+    { "pitch": 71, "duration": 4, "finger": 1 },
+    { "pitch": 69, "duration": 2, "finger": 2 },
+
+    { "pitch": 77, "duration": 8, "finger": 4 },
+    { "pitch": 77, "duration": 8, "finger": 4 },
+    { "pitch": 76, "duration": 4, "finger": 3 },
+    { "pitch": 72, "duration": 4, "finger": 1 },
+
+    { "pitch": 74, "duration": 4, "finger": 2 },
+    { "pitch": 72, "duration": 2, "finger": 1 }
   ],
-  "tags": [
-    "동요",
-    "입문",
-    "축하",
-    "생일"
-  ],
+  "tags": ["동요", "입문", "축하", "생일"],
   "description": "생일 축하합니다 전체 멜로디"
 }
