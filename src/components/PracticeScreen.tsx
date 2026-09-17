@@ -52,6 +52,7 @@ export const PracticeScreen: React.FC = () => {
     setIsScoreReady(false);
     const container = scoreContainerRef.current;
     let tries = 0;
+    let resizeTimeoutId: number | null = null;
 
     const initRenderer = () => {
       if (container.clientWidth === 0 || container.clientHeight === 0) {
@@ -90,18 +91,34 @@ export const PracticeScreen: React.FC = () => {
     initRenderer();
 
     // ResizeObserver to handle orientation changes and container resizing
+    // Debounced to prevent rapid re-renders during iOS rotation
     const resizeObserver = new ResizeObserver(() => {
-      if (container.clientWidth > 0 && container.clientHeight > 0 && scoreRendererRef.current) {
-        scoreRendererRef.current.updateConfig({
-          width: container.clientWidth,
-          height: container.clientHeight
-        });
+      if (resizeTimeoutId !== null) {
+        window.clearTimeout(resizeTimeoutId);
       }
+
+      resizeTimeoutId = window.setTimeout(() => {
+        resizeTimeoutId = null;
+        // Skip resize if dimensions are too small (iOS Safari reports 0 mid-rotation)
+        if (container.clientWidth > 100 && container.clientHeight > 100 && scoreRendererRef.current) {
+          try {
+            scoreRendererRef.current.updateConfig({
+              width: container.clientWidth,
+              height: container.clientHeight
+            });
+          } catch (error) {
+            console.error('Failed to update score on resize:', error);
+          }
+        }
+      }, 150);
     });
 
     resizeObserver.observe(container);
 
     return () => {
+      if (resizeTimeoutId !== null) {
+        window.clearTimeout(resizeTimeoutId);
+      }
       resizeObserver.disconnect();
       scoreRendererRef.current?.destroy();
     };

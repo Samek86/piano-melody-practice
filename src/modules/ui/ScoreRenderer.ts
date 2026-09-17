@@ -30,6 +30,7 @@ export class ScoreRenderer {
   private currentMeasureWindow: number = 0;
   private timeSignature: [number, number];
   private noteToVexIndexMap: Map<number, { measureIdx: number; noteIdx: number }> = new Map();
+  private isRendering: boolean = false;
 
   constructor(
     container: HTMLElement,
@@ -111,18 +112,27 @@ export class ScoreRenderer {
   }
 
   private render(): void {
-    this.container.innerHTML = '';
-    this.noteToVexIndexMap.clear();
+    // Guard against concurrent renders (iOS Safari rapid resize events)
+    if (this.isRendering) {
+      console.warn('ScoreRenderer: Render already in progress, skipping');
+      return;
+    }
 
     const width = this.config.width;
     const height = this.config.height;
 
-    if (width <= 0 || height <= 0) {
-      console.warn('ScoreRenderer: Container has zero dimensions, deferring render');
+    // Skip render if dimensions are invalid or too small
+    if (width <= 0 || height <= 0 || width < 100 || height < 100) {
+      console.warn('ScoreRenderer: Invalid dimensions, skipping render', { width, height });
       return;
     }
 
+    this.isRendering = true;
+
     try {
+      // Safe cleanup: clear container before starting new render
+      this.container.innerHTML = '';
+      this.noteToVexIndexMap.clear();
       const div = document.createElement('div');
       this.container.appendChild(div);
 
@@ -252,6 +262,8 @@ export class ScoreRenderer {
       console.error('ScoreRenderer: Failed to render score:', error);
       this.container.innerHTML = '<div style="padding: 20px; text-align: center; color: #e53e3e;">악보 렌더링 오류가 발생했습니다.</div>';
       throw error;
+    } finally {
+      this.isRendering = false;
     }
   }
 
@@ -389,7 +401,18 @@ export class ScoreRenderer {
   }
 
   destroy(): void {
-    this.container.innerHTML = '';
-    this.renderer = null;
+    // Wait for any in-progress render to complete before destroying
+    if (this.isRendering) {
+      console.warn('ScoreRenderer: Destroying while render in progress');
+    }
+    
+    try {
+      this.container.innerHTML = '';
+      this.noteToVexIndexMap.clear();
+      this.renderer = null;
+      this.isRendering = false;
+    } catch (error) {
+      console.error('ScoreRenderer: Error during destroy:', error);
+    }
   }
 }
