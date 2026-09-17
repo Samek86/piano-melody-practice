@@ -8,7 +8,7 @@ function showFatal(message: string) {
   root.innerHTML = `<div style="padding:24px;font-family:-apple-system,sans-serif;color:#1a202c">
     <h2 style="color:#c53030">앱 오류</h2>
     <p style="word-break:break-word;white-space:pre-wrap">${message}</p>
-    <p style="color:#718096;font-size:14px">빌드: 2026-09-11-pitchfix3</p>
+    <p style="color:#718096;font-size:14px">빌드: 2026-09-17-pitchfix4</p>
     <button style="margin-top:16px;padding:12px 16px;font-size:16px"
       onclick="location.href=location.pathname+'?t='+Date.now()">새로고침</button>
   </div>`;

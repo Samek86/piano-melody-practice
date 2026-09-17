@@ -66,7 +66,9 @@ export class AudioCapture {
 
     const sampleRate = this.audioContext.sampleRate;
     const binHz = sampleRate / this.analyser.fftSize;
-    const minBin = Math.max(1, Math.floor(55 / binHz));
+    // Raise minBin to 150 Hz to avoid false D2 detections from low-frequency rumble
+    // (phone handling, HVAC, traffic noise commonly peaks at 60-100 Hz)
+    const minBin = Math.max(1, Math.floor(150 / binHz));
     const maxBin = Math.min(this.freqBuffer.length - 1, Math.floor(2000 / binHz));
 
     let bestBin = -1;
@@ -82,7 +84,40 @@ export class AudioCapture {
     if (bestBin < 0 || bestDb < -75) {
       return { peakDb: bestDb, frequency: null };
     }
-    return { peakDb: bestDb, frequency: bestBin * binHz };
+    
+    const frequency = bestBin * binHz;
+    
+    // Additional validation: check for spectral clarity
+    // Real piano notes have clear peaks; rumble has broad low-frequency energy
+    const peakProminence = this.calculatePeakProminence(bestBin, bestDb);
+    if (peakProminence < 6) {
+      // Not a clear enough peak, likely noise
+      return { peakDb: bestDb, frequency: null };
+    }
+    
+    return { peakDb: bestDb, frequency };
+  }
+
+  /** Calculate how prominent the peak is compared to neighboring bins */
+  private calculatePeakProminence(peakBin: number, peakDb: number): number {
+    if (!this.freqBuffer) return 0;
+    
+    const checkRadius = 3;
+    let minNeighborDb = 0;
+    let neighborCount = 0;
+    
+    for (let offset = -checkRadius; offset <= checkRadius; offset++) {
+      if (offset === 0) continue;
+      const bin = peakBin + offset;
+      if (bin >= 0 && bin < this.freqBuffer.length) {
+        minNeighborDb += this.freqBuffer[bin];
+        neighborCount++;
+      }
+    }
+    
+    if (neighborCount === 0) return 0;
+    const avgNeighborDb = minNeighborDb / neighborCount;
+    return peakDb - avgNeighborDb;
   }
 
   getLevel(): { rms: number; peak: number } {
