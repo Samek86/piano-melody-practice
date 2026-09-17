@@ -28,6 +28,7 @@ export interface Song {
   description?: string;
   duration?: number;
   ageRecommendation?: string;
+  pickupBeats?: number;       // Anacrusis/incomplete first measure in beats (e.g., 1 for one quarter-note pickup in 3/4 time)
 }
 
 export interface PitchDetectionResult {
