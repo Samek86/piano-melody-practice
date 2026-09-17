@@ -77,7 +77,8 @@ export const PracticeScreen: React.FC = () => {
             showFingerNumbers: settings.showFingerNumbers
           },
           currentSong.timeSignature,
-          currentSong.pickupBeats
+          currentSong.pickupBeats,
+          currentSong.key
         );
 
         scoreRendererRef.current.highlightNote(0, 'blue');

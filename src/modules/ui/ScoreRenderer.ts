@@ -1,6 +1,8 @@
 import { Note } from '../../types';
 import { isRest, vexDuration } from '../../utils';
 import { Renderer, Stave, StaveNote, Voice, Formatter, Accidental, Modifier, FretHandFinger } from 'vexflow';
+import { attachDots } from './vexDots';
+import { stavePreludeWidth, vexKeySignature } from './keySignature';
 
 export interface RenderConfig {
   width: number;
@@ -32,6 +34,7 @@ export class ScoreRenderer {
   private currentMeasureWindow: number = 0;
   private timeSignature: [number, number];
   private pickupBeats: number | undefined;
+  private key: string | undefined;
   private noteToVexIndexMap: Map<number, { measureIdx: number; noteIdx: number }> = new Map();
   private isRendering: boolean = false;
   private pendingRenderConfig: Partial<RenderConfig> | null = null;
@@ -41,13 +44,15 @@ export class ScoreRenderer {
     notes: Note[],
     config: RenderConfig,
     timeSignature: [number, number] = [4, 4],
-    pickupBeats?: number
+    pickupBeats?: number,
+    key?: string
   ) {
     this.container = container;
     this.notes = notes;
     this.config = config;
     this.timeSignature = timeSignature;
     this.pickupBeats = pickupBeats;
+    this.key = key;
     this.splitIntoMeasures();
     this.initializeNoteStates();
     this.render();
@@ -157,12 +162,12 @@ export class ScoreRenderer {
 
       // Target ~3× zoom: stave ~250–280px wide (wider → notes fit; too wide → shrinks).
       const marginX = 24;
-      const clefTimeWidth = 56;
+      const isFirstMeasure = startMeasure === 0;
+      const preludeWidth = stavePreludeWidth({ key: this.key, isFirstMeasure });
       const notesInView = measuresToRender.reduce((n, m) => n + m.notes.length, 0);
-      const needsClef = startMeasure === 0;
       const noteSlot = 40; // room inside measure without killing ~3× zoom
       const endPad = 36; // space before right barline
-      const contentW = (needsClef ? clefTimeWidth : 24) + Math.max(1, notesInView) * noteSlot + endPad;
+      const contentW = preludeWidth + Math.max(1, notesInView) * noteSlot + endPad;
       const staveWidth = Math.min(width - 2 * marginX, contentW);
       const staveX = Math.max(marginX, (width - staveWidth) / 2);
       const staveY = Math.max(40, height / 2 - 30);
@@ -171,8 +176,12 @@ export class ScoreRenderer {
         const actualMeasureIdx = startMeasure + idx;
         const stave = new Stave(staveX, staveY, staveWidth);
 
+        stave.addClef('treble');
+        const keySpec = vexKeySignature(this.key);
+        if (keySpec) {
+          stave.addKeySignature(keySpec);
+        }
         if (actualMeasureIdx === 0) {
-          stave.addClef('treble');
           stave.addTimeSignature(`${this.timeSignature[0]}/${this.timeSignature[1]}`);
         }
 
@@ -188,6 +197,7 @@ export class ScoreRenderer {
             duration,
             clef: 'treble'
           });
+          attachDots(staveNote, note.dotted);
 
           if (!rest && keys[0].includes('#')) {
             staveNote.addModifier(new Accidental('#'), 0);
@@ -216,7 +226,7 @@ export class ScoreRenderer {
         voice.setStrict(false);
         voice.addTickables(vexNotes);
 
-        const formatterWidth = staveWidth - (actualMeasureIdx === 0 ? clefTimeWidth : 20) - 12;
+        const formatterWidth = staveWidth - preludeWidth - 12;
         new Formatter().joinVoices([voice]).format([voice], Math.max(40, formatterWidth));
         voice.draw(context, stave);
 
