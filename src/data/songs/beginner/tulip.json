@@ -12,21 +12,56 @@
   "notes": [
     { "pitch": 60, "duration": 4, "finger": 1 },
     { "pitch": 62, "duration": 4, "finger": 2 },
-    { "pitch": 64, "duration": 4, "finger": 3 },
-    { "pitch": 60, "duration": 4, "finger": 1 },
-
-    { "pitch": 64, "duration": 4, "finger": 3 },
-    { "pitch": 64, "duration": 4, "finger": 3 },
     { "pitch": 64, "duration": 2, "finger": 3 },
 
     { "pitch": 60, "duration": 4, "finger": 1 },
     { "pitch": 62, "duration": 4, "finger": 2 },
+    { "pitch": 64, "duration": 2, "finger": 3 },
+
+    { "pitch": 67, "duration": 4, "finger": 5 },
     { "pitch": 64, "duration": 4, "finger": 3 },
+    { "pitch": 62, "duration": 4, "finger": 2 },
     { "pitch": 60, "duration": 4, "finger": 1 },
+
+    { "pitch": 62, "duration": 4, "finger": 2 },
+    { "pitch": 64, "duration": 4, "finger": 3 },
+    { "pitch": 62, "duration": 2, "finger": 2 },
+
+    { "pitch": 60, "duration": 4, "finger": 1 },
+    { "pitch": 62, "duration": 4, "finger": 2 },
+    { "pitch": 64, "duration": 2, "finger": 3 },
+
+    { "pitch": 60, "duration": 4, "finger": 1 },
+    { "pitch": 62, "duration": 4, "finger": 2 },
+    { "pitch": 64, "duration": 2, "finger": 3 },
+
+    { "pitch": 67, "duration": 4, "finger": 5 },
+    { "pitch": 64, "duration": 4, "finger": 3 },
+    { "pitch": 62, "duration": 4, "finger": 2 },
+    { "pitch": 60, "duration": 4, "finger": 1 },
+
+    { "pitch": 62, "duration": 4, "finger": 2 },
+    { "pitch": 64, "duration": 4, "finger": 3 },
+    { "pitch": 60, "duration": 2, "finger": 1 },
+
 
     { "pitch": 67, "duration": 4, "finger": 5 },
     { "pitch": 67, "duration": 4, "finger": 5 },
-    { "pitch": 67, "duration": 2, "finger": 5 }
+    { "pitch": 64, "duration": 4, "finger": 3 },
+    { "pitch": 67, "duration": 4, "finger": 5 },
+
+    { "pitch": 69, "duration": 4, "finger": 5 },
+    { "pitch": 69, "duration": 4, "finger": 5 },
+    { "pitch": 67, "duration": 2, "finger": 5 },
+
+    { "pitch": 64, "duration": 4, "finger": 3 },
+    { "pitch": 64, "duration": 4, "finger": 3 },
+    { "pitch": 62, "duration": 4, "finger": 2 },
+    { "pitch": 62, "duration": 4, "finger": 2 },
+
+    { "pitch": 60, "duration": 2, "dotted": true, "finger": 1 },
+    { "rest": true, "duration": 4 }
+
   ],
   "tags": ["동요", "일본", "입문", "꽃"],
   "description": "일본의 대표적인 동요. さいた さいた チューリップのはなが 간단한 멜로디입니다."
