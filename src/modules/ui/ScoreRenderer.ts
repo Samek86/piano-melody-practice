@@ -31,6 +31,7 @@ export class ScoreRenderer {
   private timeSignature: [number, number];
   private noteToVexIndexMap: Map<number, { measureIdx: number; noteIdx: number }> = new Map();
   private isRendering: boolean = false;
+  private pendingRenderConfig: Partial<RenderConfig> | null = null;
 
   constructor(
     container: HTMLElement,
@@ -114,20 +115,22 @@ export class ScoreRenderer {
   private render(): void {
     // Guard against concurrent renders (iOS Safari rapid resize events)
     if (this.isRendering) {
-      console.warn('ScoreRenderer: Render already in progress, skipping');
+      console.warn('ScoreRenderer: Render already in progress, will defer');
       return;
     }
 
     const width = this.config.width;
     const height = this.config.height;
 
-    // Skip render if dimensions are invalid or too small
-    if (width <= 0 || height <= 0 || width < 100 || height < 100) {
+    // Only reject truly invalid dimensions (iOS Safari reports 0 mid-rotation)
+    // Keep threshold low: landscape mode can have score area ~60-90px tall
+    if (width <= 0 || height <= 0 || width < 32 || height < 32) {
       console.warn('ScoreRenderer: Invalid dimensions, skipping render', { width, height });
       return;
     }
 
     this.isRendering = true;
+    this.pendingRenderConfig = null; // Clear any pending request, we're rendering now
 
     try {
       // Safe cleanup: clear container before starting new render
@@ -264,6 +267,16 @@ export class ScoreRenderer {
       throw error;
     } finally {
       this.isRendering = false;
+      
+      // Process pending render if one arrived while we were rendering
+      if (this.pendingRenderConfig) {
+        const pending = this.pendingRenderConfig;
+        this.pendingRenderConfig = null;
+        // Use setTimeout to avoid deep recursion and let the call stack clear
+        setTimeout(() => {
+          this.updateConfig(pending);
+        }, 0);
+      }
     }
   }
 
@@ -396,7 +409,15 @@ export class ScoreRenderer {
   }
 
   updateConfig(config: Partial<RenderConfig>): void {
+    // Update config with new values
     this.config = { ...this.config, ...config };
+    
+    // If a render is in progress, queue this config for after it completes
+    if (this.isRendering) {
+      this.pendingRenderConfig = { ...this.pendingRenderConfig, ...config };
+      return;
+    }
+    
     this.render();
   }
 

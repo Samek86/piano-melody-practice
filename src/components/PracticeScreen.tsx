@@ -99,8 +99,9 @@ export const PracticeScreen: React.FC = () => {
 
       resizeTimeoutId = window.setTimeout(() => {
         resizeTimeoutId = null;
-        // Skip resize if dimensions are too small (iOS Safari reports 0 mid-rotation)
-        if (container.clientWidth > 100 && container.clientHeight > 100 && scoreRendererRef.current) {
+        // Only reject truly invalid dimensions (iOS Safari reports 0 mid-rotation)
+        // Keep threshold low: landscape mode can have score area ~60-90px tall
+        if (container.clientWidth >= 32 && container.clientHeight >= 32 && scoreRendererRef.current) {
           try {
             scoreRendererRef.current.updateConfig({
               width: container.clientWidth,
