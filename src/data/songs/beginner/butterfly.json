@@ -15,7 +15,7 @@
 
     { "pitch": 65, "duration": 4, "finger": 4 },
     { "pitch": 62, "duration": 4, "finger": 2 },
-    { "pitch": 62, "duration": 4, "finger": 2 },
+    { "pitch": 62, "duration": 2, "finger": 2 },
 
     { "pitch": 60, "duration": 4, "finger": 1 },
     { "pitch": 62, "duration": 4, "finger": 2 },
@@ -42,7 +42,7 @@
 
     { "pitch": 64, "duration": 4, "finger": 3 },
     { "pitch": 64, "duration": 4, "finger": 3 },
-    { "pitch": 64, "duration": 4, "finger": 3 },
+    { "pitch": 64, "duration": 2, "finger": 3 },
 
 
 
@@ -70,7 +70,7 @@
 
     { "pitch": 65, "duration": 4, "finger": 4 },
     { "pitch": 62, "duration": 4, "finger": 2 },
-    { "pitch": 62, "duration": 4, "finger": 2 },
+    { "pitch": 62, "duration": 2, "finger": 2 },
 
     { "pitch": 60, "duration": 4, "finger": 1 },
     { "pitch": 64, "duration": 4, "finger": 3 },
