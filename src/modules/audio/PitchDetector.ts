@@ -57,6 +57,24 @@ export class PitchDetector {
       clarity = 0.75;
     }
 
+    // Reject below ~90 Hz to avoid D2 (~73 Hz) / rumble false 레; allow D3+ (~147 Hz)
+    const MIN_RELIABLE_FREQ_HZ = 90;
+    if (frequency && frequency < MIN_RELIABLE_FREQ_HZ) {
+      // Below D3, likely rumble/handling noise
+      return { frequency: null, clarity: 0, timestamp: now };
+    }
+    
+    // For frequencies 90-150 Hz (D3 range), require harmonic structure
+    if (frequency && frequency < 150) {
+      const spectralClarity = this.calculateSpectralClarity(audioBuffer, frequency);
+      if (spectralClarity < 0.25) {
+        // Lacks harmonic structure, likely noise
+        return { frequency: null, clarity: 0, timestamp: now };
+      }
+      // Slightly reduce clarity score for low frequencies
+      clarity *= 0.85;
+    }
+
     return {
       frequency,
       clarity: frequency ? clarity : 0,
@@ -67,8 +85,11 @@ export class PitchDetector {
   private detectPitchAutocorrelation(buffer: Float32Array): number | null {
     const sampleRate = this.config.sampleRate;
     const bufferSize = buffer.length;
+    // Reject below ~90 Hz to avoid D2 (~73 Hz) / rumble false 레; allow D3+ (~147 Hz)
+    const MIN_RELIABLE_FREQ_HZ = 90;
+    const effectiveMinFreq = Math.max(this.minFrequency, MIN_RELIABLE_FREQ_HZ);
     const minLag = Math.floor(sampleRate / this.maxFrequency);
-    const maxLag = Math.floor(sampleRate / this.minFrequency);
+    const maxLag = Math.floor(sampleRate / effectiveMinFreq);
 
     let bestLag = -1;
     let bestCorrelation = -1;
@@ -86,7 +107,8 @@ export class PitchDetector {
 
     const normalization = this.calculateRMS(buffer);
     if (normalization < 0.005 || bestLag < 0) return null;
-    if (bestCorrelation / (normalization * normalization * (bufferSize - bestLag)) < 0.2) {
+    // Require stronger correlation for piano notes
+    if (bestCorrelation / (normalization * normalization * (bufferSize - bestLag)) < 0.25) {
       return null;
     }
     return sampleRate / bestLag;
@@ -121,5 +143,42 @@ export class PitchDetector {
 
   private dbToLinear(db: number): number {
     return Math.pow(10, db / 20);
+  }
+
+  /**
+   * Calculate spectral clarity to distinguish piano tones from rumble.
+   * Real piano notes have clear harmonic structure; low-frequency rumble is broad.
+   */
+  private calculateSpectralClarity(buffer: Float32Array, fundamentalFreq: number): number {
+    const sampleRate = this.config.sampleRate;
+    
+    // Calculate simple DFT at fundamental and 2nd harmonic
+    const omega1 = (2 * Math.PI * fundamentalFreq) / sampleRate;
+    const omega2 = (2 * Math.PI * fundamentalFreq * 2) / sampleRate;
+    
+    let real1 = 0, imag1 = 0;
+    let real2 = 0, imag2 = 0;
+    let totalEnergy = 0;
+    
+    const sampleCount = Math.min(buffer.length, 2048);
+    for (let i = 0; i < sampleCount; i++) {
+      const sample = buffer[i];
+      totalEnergy += sample * sample;
+      
+      real1 += sample * Math.cos(omega1 * i);
+      imag1 += sample * Math.sin(omega1 * i);
+      
+      real2 += sample * Math.cos(omega2 * i);
+      imag2 += sample * Math.sin(omega2 * i);
+    }
+    
+    if (totalEnergy < 0.001) return 0;
+    
+    const mag1 = Math.sqrt(real1 * real1 + imag1 * imag1);
+    const mag2 = Math.sqrt(real2 * real2 + imag2 * imag2);
+    const harmonicEnergy = (mag1 * mag1 + mag2 * mag2) / sampleCount;
+    
+    // Return ratio of harmonic energy to total energy
+    return harmonicEnergy / totalEnergy;
   }
 }

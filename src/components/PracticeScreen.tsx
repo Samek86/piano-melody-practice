@@ -409,7 +409,7 @@ export const PracticeScreen: React.FC = () => {
         <div>
           <h2 style={{ margin: 0 }}>{currentSong.titleKo}</h2>
           <div style={{ color: '#718096', fontSize: '0.9rem' }}>
-            음표 {currentNoteIndex + 1} / {currentSong.notes.length} · pitchfix3
+            음표 {currentNoteIndex + 1} / {currentSong.notes.length} · pitchfix4
           </div>
         </div>
         <div className="controls">
