@@ -73,6 +73,56 @@ test('skips rests to the next pitched note', () => {
   assert.equal(firstPlayableNoteIndex(notes, 2), 2);
 });
 
+test('skips tied continuation notes', () => {
+  const notes: Note[] = [
+    { pitch: 60, duration: 2, tie: true }, // Start of tie
+    { pitch: 60, duration: 2 },            // Tied continuation (same pitch)
+    { pitch: 62, duration: 4 }             // Next playable note
+  ];
+  // From index 0, first playable is 0 (the tie start)
+  assert.equal(firstPlayableNoteIndex(notes, 0), 0);
+  // From index 1, skip the tied continuation, next playable is 2
+  assert.equal(firstPlayableNoteIndex(notes, 1), 2);
+  // From index 2, first playable is 2
+  assert.equal(firstPlayableNoteIndex(notes, 2), 2);
+});
+
+test('does not skip a note after a tie if pitch changes', () => {
+  const notes: Note[] = [
+    { pitch: 60, duration: 2, tie: true }, // Tie on C
+    { pitch: 62, duration: 2 }             // Different pitch (D), not a continuation
+  ];
+  // The second note is playable because pitch changed
+  assert.equal(firstPlayableNoteIndex(notes, 1), 1);
+});
+
+test('skips multiple tied continuations in a chain', () => {
+  const notes: Note[] = [
+    { pitch: 60, duration: 4, tie: true },  // Start of tie
+    { pitch: 60, duration: 4, tie: true },  // Continuation, also tied
+    { pitch: 60, duration: 4 },             // Final continuation
+    { pitch: 62, duration: 4 }              // Next playable
+  ];
+  // From index 1, skip all tied continuations
+  assert.equal(firstPlayableNoteIndex(notes, 1), 3);
+  // From index 2, skip this continuation too
+  assert.equal(firstPlayableNoteIndex(notes, 2), 3);
+});
+
+test('skips both rests and tied continuations', () => {
+  const notes: Note[] = [
+    { rest: true, duration: 4 },            // Rest
+    { pitch: 60, duration: 2, tie: true },  // Playable tie start
+    { pitch: 60, duration: 2 },             // Tied continuation
+    { rest: true, duration: 4 },            // Another rest
+    { pitch: 62, duration: 4 }              // Next playable
+  ];
+  // From index 0, skip rest to get to tie start at index 1
+  assert.equal(firstPlayableNoteIndex(notes, 0), 1);
+  // From index 2, skip tied continuation and rest to get to index 4
+  assert.equal(firstPlayableNoteIndex(notes, 2), 4);
+});
+
 test('returns -1 when only rests remain', () => {
   const notes: Note[] = [{ rest: true, duration: 4 }, { rest: true, duration: 2 }];
   assert.equal(firstPlayableNoteIndex(notes, 0), -1);

@@ -150,55 +150,29 @@ export class ScoreRenderer {
 
       const measuresPerWindow = 1;
       const startMeasure = this.currentMeasureWindow;
-      let endMeasure = Math.min(startMeasure + measuresPerWindow, this.measures.length);
-      
-      // Check if we need to include the previous measure for a cross-measure tie
-      let actualStartMeasure = startMeasure;
-      if (startMeasure > 0 && startMeasure < this.measures.length) {
-        const currentMeasure = this.measures[startMeasure];
-        const prevMeasure = this.measures[startMeasure - 1];
-        if (prevMeasure.notes.length > 0 && currentMeasure.notes.length > 0) {
-          const lastNoteOfPrev = prevMeasure.notes[prevMeasure.notes.length - 1];
-          const firstNoteOfCurrent = currentMeasure.notes[0];
-          // If previous measure's last note has tie and current measure's first note is same pitch
-          if (lastNoteOfPrev.tie && !isRest(firstNoteOfCurrent) && 
-              lastNoteOfPrev.pitch === firstNoteOfCurrent.pitch) {
-            // Include previous measure in render to draw the cross-measure tie
-            actualStartMeasure = startMeasure - 1;
-            endMeasure = Math.min(startMeasure + measuresPerWindow, this.measures.length);
-          }
-        }
-      }
-      
-      const measuresToRender = this.measures.slice(actualStartMeasure, endMeasure);
+      const endMeasure = Math.min(startMeasure + measuresPerWindow, this.measures.length);
+      const measuresToRender = this.measures.slice(startMeasure, endMeasure);
       if (measuresToRender.length === 0) return;
 
       // Target ~3× zoom: stave ~250–280px wide (wider → notes fit; too wide → shrinks).
       const marginX = 24;
-      const isFirstMeasure = actualStartMeasure === 0;
+      const isFirstMeasure = startMeasure === 0;
       const preludeWidth = stavePreludeWidth({ key: this.key, isFirstMeasure });
       const notesInView = measuresToRender.reduce((n, m) => n + m.notes.length, 0);
       const noteSlot = 40; // room inside measure without killing ~3× zoom
       const endPad = 36; // space before right barline
-      
-      // Calculate total width needed for all measures
-      const totalMeasures = measuresToRender.length;
       const contentW = preludeWidth + Math.max(1, notesInView) * noteSlot + endPad;
-      const availableWidth = width - 2 * marginX;
-      const staveWidth = Math.min(availableWidth / totalMeasures, contentW / totalMeasures);
+      const staveWidth = Math.min(width - 2 * marginX, contentW);
+      const staveX = Math.max(marginX, (width - staveWidth) / 2);
       const staveY = Math.max(40, height / 2 - 30);
 
-      let previousMeasureLastVexNote: StaveNote | null = null;
-      let previousMeasureLastNote: Note | null = null;
-
       measuresToRender.forEach((measure, idx) => {
-        const actualMeasureIdx = actualStartMeasure + idx;
-        const staveX = marginX + (idx * staveWidth);
+        const actualMeasureIdx = startMeasure + idx;
         const stave = new Stave(staveX, staveY, staveWidth);
 
         stave.addClef('treble');
         const keySpec = vexKeySignature(this.key);
-        if (keySpec && idx === 0) {
+        if (keySpec) {
           stave.addKeySignature(keySpec);
         }
         if (actualMeasureIdx === 0) {
@@ -253,31 +227,13 @@ export class ScoreRenderer {
         voice.setStrict(false);
         voice.addTickables(vexNotes);
 
-        const measurePreludeWidth = (idx === 0) ? preludeWidth : 60; // Subsequent measures need less space (just clef)
-        const formatterWidth = staveWidth - measurePreludeWidth - 12;
+        const formatterWidth = staveWidth - preludeWidth - 12;
         new Formatter().joinVoices([voice]).format([voice], Math.max(40, formatterWidth));
         voice.draw(context, stave);
 
-        // Draw ties between notes with tie: true and next note with same pitch
+        // Draw within-measure ties (note with tie: true to next note with same pitch)
+        // Cross-measure ties are not drawn to avoid pulling previous measure back into view
         const ties: StaveTie[] = [];
-        
-        // Check for cross-measure tie from previous measure
-        if (previousMeasureLastVexNote && previousMeasureLastNote && 
-            previousMeasureLastNote.tie === true && 
-            measure.notes.length > 0 && 
-            !isRest(measure.notes[0]) && 
-            measure.notes[0].pitch === previousMeasureLastNote.pitch) {
-          // Cross-measure tie
-          const tie = new StaveTie({
-            firstNote: previousMeasureLastVexNote,
-            lastNote: vexNotes[0],
-            firstIndexes: [0],
-            lastIndexes: [0]
-          });
-          ties.push(tie);
-        }
-
-        // Ties within same measure
         measure.notes.forEach((note, noteIdx) => {
           if (note.tie && !isRest(note) && noteIdx < measure.notes.length - 1) {
             const nextNote = measure.notes[noteIdx + 1];
@@ -292,15 +248,7 @@ export class ScoreRenderer {
             }
           }
         });
-
-        // Draw all ties for this measure
         ties.forEach(tie => tie.setContext(context).draw());
-
-        // Store last note info for next measure's cross-measure tie check
-        if (vexNotes.length > 0 && measure.notes.length > 0) {
-          previousMeasureLastVexNote = vexNotes[vexNotes.length - 1];
-          previousMeasureLastNote = measure.notes[measure.notes.length - 1];
-        }
 
         const svg = this.container.querySelector('svg');
         if (svg) {
@@ -413,9 +361,12 @@ export class ScoreRenderer {
 
     const noteInfo = this.noteToVexIndexMap.get(index);
     
-    // If note not in map, it's not currently rendered - trigger window update
+    // Only update measure window for the current (blue) note, not for completed/wrong notes
+    // This prevents flickering when highlighting skipped rests or tied continuations
     if (!noteInfo) {
-      this.updateMeasureWindow(index);
+      if (color === 'blue') {
+        this.updateMeasureWindow(index);
+      }
       return;
     }
 
@@ -424,8 +375,11 @@ export class ScoreRenderer {
     const endMeasure = Math.min(startMeasure + measuresPerWindow, this.measures.length);
     
     // Check if note's measure is in current window
+    // Only trigger window update for current (blue) note
     if (noteInfo.measureIdx < startMeasure || noteInfo.measureIdx >= endMeasure) {
-      this.updateMeasureWindow(index);
+      if (color === 'blue') {
+        this.updateMeasureWindow(index);
+      }
       return;
     }
 

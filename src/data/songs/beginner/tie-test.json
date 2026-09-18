@@ -1,0 +1,40 @@
+{
+  "id": "tie-test",
+  "title": "Tie Test",
+  "titleKo": "타이 테스트",
+  "origin": "korean",
+  "composer": "Test",
+  "difficulty": "beginner",
+  "tempo": 90,
+  "timeSignature": [4, 4],
+  "key": "C",
+  "notes": [
+    {
+      "pitch": 60,
+      "duration": 4
+    },
+    {
+      "pitch": 62,
+      "duration": 4
+    },
+    {
+      "pitch": 64,
+      "duration": 2,
+      "tie": true
+    },
+    {
+      "pitch": 64,
+      "duration": 2
+    },
+    {
+      "pitch": 65,
+      "duration": 4
+    },
+    {
+      "pitch": 67,
+      "duration": 4
+    }
+  ],
+  "tags": ["test"],
+  "description": "Test song to verify tie handling at measure boundaries"
+}
