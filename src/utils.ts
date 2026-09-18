@@ -72,11 +72,11 @@ export function vexDuration(note: {
 }
 
 export function firstPlayableNoteIndex(
-  notes: Array<{ rest?: boolean }>,
+  notes: Array<{ rest?: boolean; tie?: boolean }>,
   fromIndex: number
 ): number {
   for (let i = fromIndex; i < notes.length; i++) {
-    if (!isRest(notes[i])) return i;
+    if (!isRest(notes[i]) && !notes[i].tie) return i;
   }
   return -1;
 }

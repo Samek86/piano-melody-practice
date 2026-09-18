@@ -18,6 +18,7 @@ import kaeruNoUta from './songs/beginner/kaeru-no-uta.json';
 // import tadpoleFrog from './songs/beginner/tadpole-frog.json';
 // import foxFox from './songs/beginner/fox-fox.json';
 import akatonbo from './songs/beginner/akatonbo.json';
+import tieTest from './songs/beginner/tie-test.json';
 // import umi from './songs/beginner/umi.json';
 // import yuyakeKoyake from './songs/beginner/yuyake-koyake.json';
 // import furusato from './songs/beginner/furusato.json';
@@ -41,7 +42,8 @@ export const allSongs: Song[] = [
   // roundRound,
   // tadpoleFrog,
   // foxFox,
-  akatonbo
+  akatonbo,
+  tieTest
   // umi,
   // yuyakeKoyake,
   // furusato,

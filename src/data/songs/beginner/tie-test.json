@@ -1,0 +1,31 @@
+{
+  "id": "tie-test",
+  "title": "Tie Test",
+  "titleKo": "붙임줄 테스트",
+  "origin": "korean",
+  "composer": "Test",
+  "difficulty": "beginner",
+  "tempo": 80,
+  "timeSignature": [4, 4],
+  "key": "C",
+  "notes": [
+    { "pitch": 60, "duration": 4, "finger": 1 },
+    { "pitch": 62, "duration": 4, "finger": 2 },
+    { "pitch": 64, "duration": 4, "finger": 3 },
+    { "pitch": 69, "duration": 4, "finger": 5 },
+    { "pitch": 69, "duration": 4, "tie": true },
+    { "pitch": 67, "duration": 4, "finger": 4 },
+    { "pitch": 65, "duration": 4, "finger": 3 },
+    { "pitch": 64, "duration": 4, "finger": 2 },
+    
+    { "pitch": 62, "duration": 4, "finger": 1 },
+    { "pitch": 64, "duration": 4, "finger": 2 },
+    { "pitch": 65, "duration": 4, "finger": 3 },
+    { "pitch": 67, "duration": 4, "finger": 4 },
+    
+    { "pitch": 69, "duration": 2, "finger": 5 },
+    { "rest": true, "duration": 2 }
+  ],
+  "tags": ["테스트", "붙임줄"],
+  "description": "붙임줄이 마디를 넘을 때의 진행을 테스트하는 곡입니다. 네 번째 음표(라)가 다음 마디로 이어집니다."
+}

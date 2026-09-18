@@ -78,3 +78,44 @@ test('returns -1 when only rests remain', () => {
   assert.equal(firstPlayableNoteIndex(notes, 0), -1);
   assert.equal(firstPlayableNoteIndex(notes, 1), -1);
 });
+
+test('skips tied continuation notes (tie: true)', () => {
+  const notes: Note[] = [
+    { pitch: 69, duration: 4 },
+    { pitch: 69, duration: 4, tie: true },
+    { pitch: 67, duration: 4 }
+  ];
+  assert.equal(firstPlayableNoteIndex(notes, 0), 0);
+  assert.equal(firstPlayableNoteIndex(notes, 1), 2);
+  assert.equal(firstPlayableNoteIndex(notes, 2), 2);
+});
+
+test('skips both rests and tied continuations', () => {
+  const notes: Note[] = [
+    { pitch: 60, duration: 4 },
+    { rest: true, duration: 4 },
+    { pitch: 65, duration: 4, tie: true },
+    { pitch: 67, duration: 4 }
+  ];
+  assert.equal(firstPlayableNoteIndex(notes, 1), 3);
+});
+
+test('handles tie at measure boundary (typical bug scenario)', () => {
+  const notes: Note[] = [
+    { pitch: 60, duration: 4 },
+    { pitch: 62, duration: 4 },
+    { pitch: 64, duration: 4 },
+    { pitch: 69, duration: 4 },
+    { pitch: 69, duration: 4, tie: true },
+    { pitch: 67, duration: 4 }
+  ];
+  assert.equal(firstPlayableNoteIndex(notes, 4), 5);
+});
+
+test('returns -1 when only tied continuations remain', () => {
+  const notes: Note[] = [
+    { pitch: 60, duration: 4 },
+    { pitch: 60, duration: 2, tie: true }
+  ];
+  assert.equal(firstPlayableNoteIndex(notes, 1), -1);
+});
