@@ -71,18 +71,29 @@ export function vexDuration(note: {
   return `${base}${dots}${type}`;
 }
 
+/**
+ * Find the first playable note starting from fromIndex.
+ * Skips rests and tied continuation notes.
+ * A tied continuation is a note that follows a note with tie: true and has the same pitch.
+ */
 export function firstPlayableNoteIndex(
   notes: Array<{ rest?: boolean; tie?: boolean; pitch?: number }>,
   fromIndex: number
 ): number {
   for (let i = fromIndex; i < notes.length; i++) {
+    // Skip rests
     if (isRest(notes[i])) continue;
     
-    // Check if this note is a tied continuation (previous note has tie: true and same pitch)
-    if (i > 0 && notes[i - 1].tie === true && notes[i - 1].pitch === notes[i].pitch) {
-      continue;
+    // Skip tied continuations: if previous note has tie: true and same pitch
+    if (i > 0 && notes[i - 1].tie === true) {
+      const prevPitch = notes[i - 1].pitch;
+      const currPitch = notes[i].pitch;
+      if (prevPitch != null && currPitch != null && prevPitch === currPitch) {
+        continue; // This is a tied continuation, skip it
+      }
     }
     
+    // This is a playable note
     return i;
   }
   return -1;

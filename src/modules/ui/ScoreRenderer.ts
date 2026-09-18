@@ -413,9 +413,12 @@ export class ScoreRenderer {
 
     const noteInfo = this.noteToVexIndexMap.get(index);
     
-    // If note not in map, it's not currently rendered - trigger window update
+    // Only update measure window for the current (blue) note, not for completed/wrong notes
+    // This prevents flickering when highlighting skipped rests or tied continuations
     if (!noteInfo) {
-      this.updateMeasureWindow(index);
+      if (color === 'blue') {
+        this.updateMeasureWindow(index);
+      }
       return;
     }
 
@@ -424,8 +427,11 @@ export class ScoreRenderer {
     const endMeasure = Math.min(startMeasure + measuresPerWindow, this.measures.length);
     
     // Check if note's measure is in current window
+    // Only trigger window update for current (blue) note
     if (noteInfo.measureIdx < startMeasure || noteInfo.measureIdx >= endMeasure) {
-      this.updateMeasureWindow(index);
+      if (color === 'blue') {
+        this.updateMeasureWindow(index);
+      }
       return;
     }
 
