@@ -85,7 +85,7 @@ export class AudioCapture {
       return { peakDb: bestDb, frequency: null };
     }
     
-    const frequency = bestBin * binHz;
+    let frequency = bestBin * binHz;
     
     // For frequencies 90-150 Hz, require clear spectral peak to avoid rumble
     // (Real piano notes have clear peaks; rumble has broad low-frequency energy)
@@ -96,6 +96,10 @@ export class AudioCapture {
         return { peakDb: bestDb, frequency: null };
       }
     }
+    
+    // Estimate the fundamental instead of just returning the loudest bin
+    // Phone mics often pick up 2nd/3rd harmonic louder than the fundamental
+    frequency = this.estimateFundamental(frequency, bestDb, binHz);
     
     return { peakDb: bestDb, frequency };
   }
@@ -120,6 +124,77 @@ export class AudioCapture {
     if (neighborCount === 0) return 0;
     const avgNeighborDb = minNeighborDb / neighborCount;
     return peakDb - avgNeighborDb;
+  }
+
+  /**
+   * Estimate the fundamental frequency from a strong peak that might be a harmonic.
+   * If the peak F has significant energy near F/2 or F/3, prefer the lower candidate.
+   */
+  private estimateFundamental(peakFreq: number, peakDb: number, binHz: number): number {
+    if (!this.freqBuffer || !this.audioContext) return peakFreq;
+    
+    const MIN_RELIABLE_FREQ_HZ = 90;
+    const candidates: Array<{ freq: number; evidence: number }> = [
+      { freq: peakFreq, evidence: 1.0 }
+    ];
+    
+    // Check if peakFreq might be 2nd harmonic (F/2 exists)
+    const halfFreq = peakFreq / 2;
+    if (halfFreq >= MIN_RELIABLE_FREQ_HZ) {
+      const halfEnergy = this.getEnergyNear(halfFreq, binHz, peakDb);
+      if (halfEnergy > 0) {
+        candidates.push({ freq: halfFreq, evidence: halfEnergy });
+      }
+    }
+    
+    // Check if peakFreq might be 3rd harmonic (F/3 exists)
+    const thirdFreq = peakFreq / 3;
+    if (thirdFreq >= MIN_RELIABLE_FREQ_HZ) {
+      const thirdEnergy = this.getEnergyNear(thirdFreq, binHz, peakDb);
+      if (thirdEnergy > 0) {
+        candidates.push({ freq: thirdFreq, evidence: thirdEnergy });
+      }
+    }
+    
+    // Prefer the lowest candidate with significant evidence
+    candidates.sort((a, b) => a.freq - b.freq);
+    for (const candidate of candidates) {
+      if (candidate.evidence > 0.3) {
+        return candidate.freq;
+      }
+    }
+    
+    return peakFreq;
+  }
+
+  /**
+   * Get normalized energy near a target frequency (for harmonic checking).
+   * Returns 0 if no significant energy, or a ratio (0-1) indicating strength relative to referenceDb.
+   */
+  private getEnergyNear(targetFreq: number, binHz: number, referenceDb: number): number {
+    if (!this.freqBuffer) return 0;
+    
+    const targetBin = Math.round(targetFreq / binHz);
+    if (targetBin < 0 || targetBin >= this.freqBuffer.length) return 0;
+    
+    // Check a small window around the target frequency (±3 bins for ~5% tolerance)
+    const windowRadius = 3;
+    let maxDb = -Infinity;
+    
+    for (let offset = -windowRadius; offset <= windowRadius; offset++) {
+      const bin = targetBin + offset;
+      if (bin >= 0 && bin < this.freqBuffer.length) {
+        const db = this.freqBuffer[bin];
+        if (db > maxDb) maxDb = db;
+      }
+    }
+    
+    // Require at least -15 dB relative to the reference peak
+    const relativeDb = maxDb - referenceDb;
+    if (relativeDb < -15) return 0;
+    
+    // Return a normalized evidence score (0-1)
+    return Math.min(1.0, Math.max(0, (relativeDb + 15) / 15));
   }
 
   getLevel(): { rms: number; peak: number } {

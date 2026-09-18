@@ -110,3 +110,18 @@ test('a different pitch still clears the repeated-note gate', () => {
   const other = tick(matcher, D4, HIGH, 120);
   assert.equal(other.matched, true);
 });
+
+test('release gate auto-clears after timeout with renewed energy', () => {
+  const matcher = createMatcher();
+  matchFirstC(matcher);
+  matcher.setTargetNote(60);
+
+  // Wait past the 350ms timeout while maintaining high energy
+  // The gate should auto-clear due to timeout + sustained energy
+  now += 400;
+  matcher.checkMatch(C4, HIGH);
+
+  // Now should be able to match again with sustain
+  const retriggered = tick(matcher, C4, HIGH, 60);
+  assert.equal(retriggered.matched, true);
+});

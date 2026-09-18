@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { StaveNote } from 'vexflow';
-import { latchDetectedFrequency, isRest, vexDuration, firstPlayableNoteIndex } from './utils.ts';
+import { latchDetectedFrequency, isRest, vexDuration, firstPlayableNoteIndex, reconcileOctaves } from './utils.ts';
 import type { Note } from './types.ts';
 
 test('keeps last detected pitch when microphone goes silent', () => {
@@ -174,4 +174,39 @@ test('tie flag without continuation note does not affect next different pitch', 
     { pitch: 72, duration: 8 }
   ];
   assert.equal(firstPlayableNoteIndex(notes, 1), 1); // Next note is different pitch, should play
+});
+
+test('reconcileOctaves prefers lower frequency when FFT is 2× YIN', () => {
+  // D4 = 294 Hz, D5 = 588 Hz (exactly 2×)
+  const result = reconcileOctaves(294, 588);
+  assert.equal(result.frequency, 294);
+  assert.ok(result.source.includes('yin'));
+});
+
+test('reconcileOctaves prefers lower frequency when FFT is 3× YIN', () => {
+  // A3 = 220 Hz, E5 = 659.26 Hz (roughly 3×, perfect fifth + 2 octaves)
+  const result = reconcileOctaves(220, 660);
+  assert.equal(result.frequency, 220);
+  assert.ok(result.source.includes('yin'));
+});
+
+test('reconcileOctaves prefers lower frequency when YIN is 2× FFT', () => {
+  // C5 = 523.25 Hz, C6 = 1046.5 Hz (exactly 2×)
+  const result = reconcileOctaves(1046.5, 523.25);
+  assert.equal(result.frequency, 523.25);
+  assert.ok(result.source.includes('fft'));
+});
+
+test('reconcileOctaves prefers YIN when frequencies are close (no octave relationship)', () => {
+  // A4 = 440 Hz, A4 slightly sharp = 445 Hz (no 2× or 3× relationship)
+  const result = reconcileOctaves(440, 445);
+  assert.equal(result.frequency, 440);
+  assert.equal(result.source, 'yin');
+});
+
+test('reconcileOctaves handles near-2× with tolerance', () => {
+  // Slightly detuned octave: YIN = 294 Hz, FFT = 585 Hz (~1.99×)
+  const result = reconcileOctaves(294, 585);
+  assert.equal(result.frequency, 294);
+  assert.ok(result.source.includes('yin'));
 });

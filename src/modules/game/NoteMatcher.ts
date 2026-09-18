@@ -10,7 +10,8 @@ export interface NoteMatchingConfig {
 
 const RELEASE_DIP_RATIO = 0.75;
 const ATTACK_RATIO = 1.25;
-const QUIET_PEAK = 0.02;
+const QUIET_PEAK = 0.025;
+const RELEASE_TIMEOUT_MS = 350;
 
 export class NoteMatcher {
   private config: NoteMatchingConfig;
@@ -22,6 +23,7 @@ export class NoteMatcher {
   private releasedSeen: boolean = false;
   private peakAtMatch: number = 0;
   private minPeakSinceMatch: number = 0;
+  private releaseGateArmedTime: number = 0;
 
   constructor(config: NoteMatchingConfig) {
     this.config = config;
@@ -54,10 +56,14 @@ export class NoteMatcher {
     this.releasedSeen = false;
     this.peakAtMatch = peakLevel;
     this.minPeakSinceMatch = peakLevel;
+    this.releaseGateArmedTime = Date.now();
   }
 
   private updateReleaseGate(detectedFrequency: number | null, peakLevel: number): void {
     if (!this.requiresRelease) return;
+
+    const now = Date.now();
+    const timeSinceArmed = now - this.releaseGateArmedTime;
 
     this.minPeakSinceMatch = Math.min(this.minPeakSinceMatch, peakLevel);
 
@@ -70,7 +76,15 @@ export class NoteMatcher {
 
     const trough = Math.max(this.minPeakSinceMatch, 0.005);
     const strongEnough = peakLevel >= Math.max(0.035, this.peakAtMatch * 0.25);
-    if (this.releasedSeen && peakLevel >= trough * ATTACK_RATIO && strongEnough) {
+    const attack = peakLevel >= trough * ATTACK_RATIO;
+    
+    if (this.releasedSeen && attack && strongEnough) {
+      this.clearReleaseGate();
+    }
+    
+    // Auto-clear release gate after timeout if pitch is still detected with sufficient energy
+    // This helps when playing consecutive notes on a real piano without perfect silence
+    if (timeSinceArmed > RELEASE_TIMEOUT_MS && detectedFrequency != null && strongEnough) {
       this.clearReleaseGate();
     }
   }
@@ -201,6 +215,7 @@ export class NoteMatcher {
     this.lastMatchedPitchClass = null;
     this.peakAtMatch = 0;
     this.minPeakSinceMatch = 0;
+    this.releaseGateArmedTime = 0;
     this.clearReleaseGate();
   }
 }
