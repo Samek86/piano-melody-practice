@@ -287,6 +287,7 @@ h2 {
 }
 
 .keyboard {
+  position: relative;
   display: flex;
   gap: 2px;
   justify-content: space-between;
@@ -303,20 +304,42 @@ h2 {
   align-items: center;
   justify-content: flex-end;
   padding: 6px 4px;
-  flex: 1;
-  min-width: 40px;
-  height: 100px;
-  background: #fffef7;
-  border: 2px solid #1f2937;
-  border-radius: 3px;
   cursor: pointer;
   user-select: none;
   transition: all 0.1s ease;
   touch-action: manipulation;
 }
 
-.key:active {
-  background: #e8e4d9;
+.white-key {
+  flex: 1;
+  min-width: 40px;
+  height: 100px;
+  background: #fffef7;
+  border: 2px solid #1f2937;
+  border-radius: 3px;
+  z-index: 1;
+}
+
+.white-key:active {
+  background: #cbd5e0;
+  transform: translateY(2px);
+}
+
+.black-key {
+  position: absolute;
+  width: 6%;
+  height: 60px;
+  background: #1a202c;
+  border: 2px solid #0f1419;
+  border-radius: 0 0 3px 3px;
+  top: 8px;
+  z-index: 2;
+  padding: 4px 2px;
+  min-width: 28px;
+}
+
+.black-key:active {
+  background: #4a5568;
   transform: translateY(2px);
 }
 
@@ -473,10 +496,16 @@ h2 {
     padding: 3px;
   }
   
-  .key {
+  .white-key {
     min-width: 30px;
     height: 55px;
     padding: 3px 2px;
+  }
+  
+  .black-key {
+    height: 35px;
+    min-width: 20px;
+    padding: 3px 1px;
   }
   
   .key-label {
@@ -520,8 +549,10 @@ h2 {
   .pitch-indicator { font-size: 0.8rem !important; padding: 2px 6px !important; margin: 0 !important; }
   .progress-bar { height: 2px !important; margin: 0 !important; }
   .keyboard { gap: 3px !important; margin: 0 !important; }
-  .key { height: 28px !important; min-height: 28px !important; min-width: 0 !important; padding: 0 !important; }
+  .white-key { height: 28px !important; min-height: 28px !important; min-width: 0 !important; padding: 0 !important; }
+  .black-key { height: 18px !important; min-height: 18px !important; min-width: 18px !important; padding: 0 !important; }
   .key-label { font-size: 0.7rem !important; }
+  .black-key .key-label { font-size: 0.5rem !important; }
   .score-container {
     padding: 0 !important;
     flex: 1 1 auto !important;

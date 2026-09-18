@@ -19,9 +19,9 @@
     { "pitch": 67, "duration": 2 },
 
     { "rest": true, "duration": 8 },
-    { "pitch": 72, "duration": 8 },
-    { "pitch": 76, "duration": 8 },
-    { "pitch": 79, "duration": 8 },
+    { "pitch": 60, "duration": 8 },
+    { "pitch": 64, "duration": 8 },
+    { "pitch": 67, "duration": 8 },
     { "pitch": 72, "duration": 4 },
     { "pitch": 71, "duration": 8 },
     { "pitch": 69, "duration": 8 },
