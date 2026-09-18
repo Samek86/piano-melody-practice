@@ -163,7 +163,6 @@ export const useAppStore = create<AppStore>((set, get) => ({
   
   onNoteMatched: () => {
     const { correctNotes, currentNoteIndex, currentSong } = get();
-    const isLastNote = currentSong && currentNoteIndex === currentSong.notes.length - 1;
     
     set({
       practiceState: 'success',
@@ -171,17 +170,16 @@ export const useAppStore = create<AppStore>((set, get) => ({
       sustainProgress: 1
     });
     
-    if (isLastNote) {
+    const nextPlayable = currentSong
+      ? firstPlayableNoteIndex(currentSong.notes, currentNoteIndex + 1)
+      : -1;
+
+    if (nextPlayable < 0) {
       setTimeout(() => set({ appState: 'complete', isListening: false }), 500);
     } else {
       setTimeout(() => {
-        const nextPlayable = currentSong 
-          ? firstPlayableNoteIndex(currentSong.notes, currentNoteIndex + 1)
-          : currentNoteIndex + 1;
-        const nextIndex = nextPlayable >= 0 ? nextPlayable : currentSong!.notes.length;
-        
         set({
-          currentNoteIndex: nextIndex,
+          currentNoteIndex: nextPlayable,
           practiceState: 'waiting',
           sustainProgress: 0
         });
