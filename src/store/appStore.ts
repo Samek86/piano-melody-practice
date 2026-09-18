@@ -175,8 +175,13 @@ export const useAppStore = create<AppStore>((set, get) => ({
       setTimeout(() => set({ appState: 'complete', isListening: false }), 500);
     } else {
       setTimeout(() => {
+        const nextPlayable = currentSong 
+          ? firstPlayableNoteIndex(currentSong.notes, currentNoteIndex + 1)
+          : currentNoteIndex + 1;
+        const nextIndex = nextPlayable >= 0 ? nextPlayable : currentSong!.notes.length;
+        
         set({
-          currentNoteIndex: get().currentNoteIndex + 1,
+          currentNoteIndex: nextIndex,
           practiceState: 'waiting',
           sustainProgress: 0
         });
