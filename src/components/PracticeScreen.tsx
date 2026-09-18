@@ -6,7 +6,7 @@ import { takeBootstrappedAudioCapture } from '../modules/audio/audioSession';
 import { PitchDetector } from '../modules/audio/PitchDetector';
 import { NoteMatcher } from '../modules/game/NoteMatcher';
 import { SoftKeyboard } from './SoftKeyboard';
-import { midiToNoteName, frequencyToMidi, isRest, firstPlayableNoteIndex } from '../utils';
+import { midiToNoteName, frequencyToMidi, isRest, firstPlayableNoteIndex, reconcileOctaves } from '../utils';
 
 export const PracticeScreen: React.FC = () => {
   const {
@@ -265,12 +265,28 @@ export const PracticeScreen: React.FC = () => {
         const buffer = audioCaptureRef.current.getAudioBuffer();
         const yinResult = buffer ? pitchDetectorRef.current.detect(buffer) : null;
 
-        // Prefer in-range YIN; otherwise FFT peak (more reliable on phone mics)
-        let frequency: number | null = yinResult?.frequency ?? null;
-        let clarity = yinResult?.clarity ?? 0;
-        let source = frequency ? 'yin' : 'none';
-        if (frequency == null && spectrum.frequency != null) {
-          frequency = spectrum.frequency;
+        // Combine YIN + FFT with octave reconciliation
+        let frequency: number | null = null;
+        let clarity = 0;
+        let source = 'none';
+        
+        const yinFreq = yinResult?.frequency ?? null;
+        const fftFreq = spectrum.frequency;
+        
+        if (yinFreq != null && fftFreq != null) {
+          // Both detectors have a result - reconcile octave differences
+          const reconciled = reconcileOctaves(yinFreq, fftFreq);
+          frequency = reconciled.frequency;
+          source = reconciled.source;
+          clarity = reconciled.source === 'yin' ? (yinResult?.clarity ?? 0.7) : 0.7;
+        } else if (yinFreq != null) {
+          // Only YIN
+          frequency = yinFreq;
+          clarity = yinResult?.clarity ?? 0.7;
+          source = 'yin';
+        } else if (fftFreq != null) {
+          // Only FFT
+          frequency = fftFreq;
           clarity = 0.7;
           source = 'fft';
         }

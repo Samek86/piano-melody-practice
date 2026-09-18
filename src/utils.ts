@@ -98,3 +98,44 @@ export function firstPlayableNoteIndex(
   }
   return -1;
 }
+
+/**
+ * Reconcile octave differences between YIN and FFT pitch detection.
+ * When one frequency is ~2× or ~3× the other (within ~70 cents), prefer the lower (fundamental).
+ */
+export function reconcileOctaves(
+  yinFreq: number,
+  fftFreq: number
+): { frequency: number; source: string } {
+  const OCTAVE_CENTS_TOLERANCE = 70;
+  
+  const checkMultiple = (f1: number, f2: number, multiple: number): boolean => {
+    const expectedRatio = multiple;
+    const actualRatio = f2 / f1;
+    const cents = Math.abs(1200 * Math.log2(actualRatio / expectedRatio));
+    return cents < OCTAVE_CENTS_TOLERANCE;
+  };
+  
+  // Check if fftFreq is 2× or 3× yinFreq
+  if (fftFreq > yinFreq * 1.8) {
+    if (checkMultiple(yinFreq, fftFreq, 2)) {
+      return { frequency: yinFreq, source: 'yin(2×fft)' };
+    }
+    if (checkMultiple(yinFreq, fftFreq, 3)) {
+      return { frequency: yinFreq, source: 'yin(3×fft)' };
+    }
+  }
+  
+  // Check if yinFreq is 2× or 3× fftFreq
+  if (yinFreq > fftFreq * 1.8) {
+    if (checkMultiple(fftFreq, yinFreq, 2)) {
+      return { frequency: fftFreq, source: 'fft(2×yin)' };
+    }
+    if (checkMultiple(fftFreq, yinFreq, 3)) {
+      return { frequency: fftFreq, source: 'fft(3×yin)' };
+    }
+  }
+  
+  // No clear octave relationship - prefer YIN when it's in range
+  return { frequency: yinFreq, source: 'yin' };
+}
