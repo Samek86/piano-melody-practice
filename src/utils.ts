@@ -72,11 +72,18 @@ export function vexDuration(note: {
 }
 
 export function firstPlayableNoteIndex(
-  notes: Array<{ rest?: boolean }>,
+  notes: Array<{ rest?: boolean; tie?: boolean; pitch?: number }>,
   fromIndex: number
 ): number {
   for (let i = fromIndex; i < notes.length; i++) {
-    if (!isRest(notes[i])) return i;
+    if (isRest(notes[i])) continue;
+    
+    // Check if this note is a tied continuation (previous note has tie: true and same pitch)
+    if (i > 0 && notes[i - 1].tie === true && notes[i - 1].pitch === notes[i].pitch) {
+      continue;
+    }
+    
+    return i;
   }
   return -1;
 }

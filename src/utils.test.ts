@@ -78,3 +78,50 @@ test('returns -1 when only rests remain', () => {
   assert.equal(firstPlayableNoteIndex(notes, 0), -1);
   assert.equal(firstPlayableNoteIndex(notes, 1), -1);
 });
+
+test('skips tied continuation notes with same pitch', () => {
+  const notes: Note[] = [
+    { pitch: 69, duration: 8, tie: true },
+    { pitch: 69, duration: 8 }, // tied continuation
+    { pitch: 72, duration: 4 }
+  ];
+  assert.equal(firstPlayableNoteIndex(notes, 0), 0); // First note is playable
+  assert.equal(firstPlayableNoteIndex(notes, 1), 2); // Skip tied continuation, go to next
+});
+
+test('does not skip note with tie flag but different pitch', () => {
+  const notes: Note[] = [
+    { pitch: 69, duration: 8, tie: true },
+    { pitch: 72, duration: 8 }, // different pitch, not a continuation
+    { pitch: 67, duration: 4 }
+  ];
+  assert.equal(firstPlayableNoteIndex(notes, 1), 1); // Should not skip
+});
+
+test('skips multiple tied continuation notes', () => {
+  const notes: Note[] = [
+    { pitch: 69, duration: 8, tie: true },
+    { pitch: 69, duration: 8, tie: true }, // tied continuation with tie
+    { pitch: 69, duration: 4 }, // second tied continuation
+    { pitch: 67, duration: 4 }
+  ];
+  assert.equal(firstPlayableNoteIndex(notes, 1), 3); // Skip both continuations
+});
+
+test('skips rests and tied continuations together', () => {
+  const notes: Note[] = [
+    { pitch: 69, duration: 8, tie: true },
+    { pitch: 69, duration: 8 }, // tied continuation
+    { rest: true, duration: 4 },
+    { pitch: 72, duration: 4 }
+  ];
+  assert.equal(firstPlayableNoteIndex(notes, 1), 3); // Skip tied continuation and rest
+});
+
+test('tie flag without continuation note does not affect next different pitch', () => {
+  const notes: Note[] = [
+    { pitch: 69, duration: 8, tie: true },
+    { pitch: 72, duration: 8 }
+  ];
+  assert.equal(firstPlayableNoteIndex(notes, 1), 1); // Next note is different pitch, should play
+});

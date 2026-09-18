@@ -1,6 +1,6 @@
 import { Note } from '../../types';
 import { isRest, vexDuration } from '../../utils';
-import { Renderer, Stave, StaveNote, Voice, Formatter, Accidental, Modifier, FretHandFinger } from 'vexflow';
+import { Renderer, Stave, StaveNote, Voice, Formatter, Accidental, Modifier, FretHandFinger, StaveTie } from 'vexflow';
 import { attachDots } from './vexDots';
 import { stavePreludeWidth, vexKeySignature } from './keySignature';
 
@@ -229,6 +229,27 @@ export class ScoreRenderer {
         const formatterWidth = staveWidth - preludeWidth - 12;
         new Formatter().joinVoices([voice]).format([voice], Math.max(40, formatterWidth));
         voice.draw(context, stave);
+
+        // Draw ties between notes with tie: true and next note with same pitch
+        const ties: StaveTie[] = [];
+        measure.notes.forEach((note, noteIdx) => {
+          if (note.tie && !isRest(note) && noteIdx < measure.notes.length - 1) {
+            const nextNote = measure.notes[noteIdx + 1];
+            if (!isRest(nextNote) && nextNote.pitch === note.pitch) {
+              // Tie within same measure
+              const tie = new StaveTie({
+                firstNote: vexNotes[noteIdx],
+                lastNote: vexNotes[noteIdx + 1],
+                firstIndexes: [0],
+                lastIndexes: [0]
+              });
+              ties.push(tie);
+            }
+          }
+        });
+
+        // Draw all ties for this measure
+        ties.forEach(tie => tie.setContext(context).draw());
 
         const svg = this.container.querySelector('svg');
         if (svg) {

@@ -1,0 +1,117 @@
+{
+  "id": "totoro-stroll",
+  "title": "Sanpo",
+  "titleKo": "산책",
+  "titleJa": "さんぽ",
+  "origin": "japanese",
+  "composer": "Joe Hisaishi",
+  "difficulty": "beginner",
+  "tempo": 112,
+  "timeSignature": [4, 4],
+  "key": "C",
+  "notes": [
+    { "pitch": 64, "duration": 4 },
+    { "pitch": 67, "duration": 4 },
+    { "pitch": 72, "duration": 2 },
+
+    { "pitch": 67, "duration": 4 },
+    { "pitch": 69, "duration": 4 },
+    { "pitch": 67, "duration": 2 },
+
+    { "rest": true, "duration": 8 },
+    { "pitch": 72, "duration": 8 },
+    { "pitch": 76, "duration": 8 },
+    { "pitch": 79, "duration": 8 },
+    { "pitch": 72, "duration": 4 },
+    { "pitch": 71, "duration": 8 },
+    { "pitch": 69, "duration": 8 },
+
+    { "pitch": 67, "duration": 2, "dotted": true },
+    { "rest": true, "duration": 4 },
+
+    { "pitch": 69, "duration": 8 },
+    { "pitch": 69, "duration": 8 },
+    { "pitch": 69, "duration": 8 },
+    { "pitch": 69, "duration": 8, "tie": true },
+    { "pitch": 69, "duration": 8 },
+    { "pitch": 72, "duration": 8 },
+    { "pitch": 71, "duration": 8 },
+    { "pitch": 69, "duration": 8 },
+
+    { "pitch": 67, "duration": 2, "dotted": true },
+    { "rest": true, "duration": 4 },
+
+    { "pitch": 69, "duration": 8 },
+    { "pitch": 67, "duration": 8 },
+    { "pitch": 69, "duration": 8 },
+    { "pitch": 67, "duration": 8 },
+    { "pitch": 62, "duration": 4 },
+    { "pitch": 64, "duration": 4 },
+
+    { "pitch": 60, "duration": 2, "dotted": true },
+    { "rest": true, "duration": 4 },
+
+    { "pitch": 68, "duration": 8 },
+    { "pitch": 68, "duration": 8 },
+    { "pitch": 68, "duration": 8 },
+    { "pitch": 68, "duration": 8, "tie": true },
+    { "pitch": 68, "duration": 2 },
+
+    { "pitch": 67, "duration": 8 },
+    { "pitch": 67, "duration": 8 },
+    { "pitch": 67, "duration": 8 },
+    { "pitch": 67, "duration": 8, "tie": true },
+    { "pitch": 67, "duration": 2 },
+
+    { "pitch": 65, "duration": 4 },
+    { "pitch": 65, "duration": 4 },
+    { "pitch": 65, "duration": 4 },
+    { "pitch": 62, "duration": 4 },
+
+    { "pitch": 64, "duration": 2, "dotted": true },
+    { "rest": true, "duration": 4 },
+
+    { "pitch": 60, "duration": 4 },
+    { "pitch": 72, "duration": 4 },
+    { "pitch": 71, "duration": 4 },
+    { "pitch": 67, "duration": 8 },
+    { "pitch": 69, "duration": 8, "tie": true },
+
+    { "pitch": 69, "duration": 2 },
+    { "rest": true, "duration": 8 },
+    { "pitch": 69, "duration": 8 },
+    { "pitch": 71, "duration": 8 },
+    { "pitch": 72, "duration": 8 },
+
+    { "pitch": 74, "duration": 4 },
+    { "pitch": 72, "duration": 4 },
+    { "pitch": 71, "duration": 4 },
+    { "pitch": 69, "duration": 4 },
+
+    { "pitch": 67, "duration": 2, "dotted": true },
+    { "rest": true, "duration": 4 },
+
+    { "pitch": 72, "duration": 8 },
+    { "pitch": 71, "duration": 8 },
+    { "pitch": 72, "duration": 8 },
+    { "pitch": 67, "duration": 8 },
+    { "pitch": 64, "duration": 8 },
+    { "pitch": 72, "duration": 4 },
+    { "pitch": 71, "duration": 8, "tie": true },
+
+    { "pitch": 71, "duration": 2 },
+    { "rest": true, "duration": 4 },
+    { "pitch": 67, "duration": 8 },
+    { "pitch": 67, "duration": 8 },
+
+    { "pitch": 69, "duration": 4 },
+    { "rest": true, "duration": 4 },
+    { "pitch": 71, "duration": 4 },
+    { "rest": true, "duration": 4 },
+
+    { "pitch": 72, "duration": 2, "dotted": true },
+    { "rest": true, "duration": 4 }
+  ],
+  "tags": ["일본", "지브리", "토토로", "동요"],
+  "description": "이웃집 토토로 OST 중 유명한 산책 장면의 노래입니다."
+}
