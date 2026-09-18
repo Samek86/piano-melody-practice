@@ -258,26 +258,9 @@ export class ScoreRenderer {
         new Formatter().joinVoices([voice]).format([voice], Math.max(40, formatterWidth));
         voice.draw(context, stave);
 
-        // Draw ties between notes with tie: true and next note with same pitch
+        // Draw within-measure ties (note with tie: true to next note with same pitch)
+        // Cross-measure ties are not drawn to avoid pulling previous measure back into view
         const ties: StaveTie[] = [];
-        
-        // Check for cross-measure tie from previous measure
-        if (previousMeasureLastVexNote && previousMeasureLastNote && 
-            previousMeasureLastNote.tie === true && 
-            measure.notes.length > 0 && 
-            !isRest(measure.notes[0]) && 
-            measure.notes[0].pitch === previousMeasureLastNote.pitch) {
-          // Cross-measure tie
-          const tie = new StaveTie({
-            firstNote: previousMeasureLastVexNote,
-            lastNote: vexNotes[0],
-            firstIndexes: [0],
-            lastIndexes: [0]
-          });
-          ties.push(tie);
-        }
-
-        // Ties within same measure
         measure.notes.forEach((note, noteIdx) => {
           if (note.tie && !isRest(note) && noteIdx < measure.notes.length - 1) {
             const nextNote = measure.notes[noteIdx + 1];
@@ -292,15 +275,7 @@ export class ScoreRenderer {
             }
           }
         });
-
-        // Draw all ties for this measure
         ties.forEach(tie => tie.setContext(context).draw());
-
-        // Store last note info for next measure's cross-measure tie check
-        if (vexNotes.length > 0 && measure.notes.length > 0) {
-          previousMeasureLastVexNote = vexNotes[vexNotes.length - 1];
-          previousMeasureLastNote = measure.notes[measure.notes.length - 1];
-        }
 
         const svg = this.container.querySelector('svg');
         if (svg) {
