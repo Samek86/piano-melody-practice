@@ -21,7 +21,8 @@ export const PracticeScreen: React.FC = () => {
     onNoteMatched,
     onWrongNote,
     skipRests,
-    appState
+    appState,
+    setAppState
   } = useAppStore();
 
   const scoreContainerRef = React.useRef<HTMLDivElement>(null);
@@ -212,7 +213,12 @@ export const PracticeScreen: React.FC = () => {
 
   React.useEffect(() => {
     if (!currentSong || !noteMatcherRef.current) return;
-    if (currentNoteIndex >= currentSong.notes.length) return;
+    
+    if (currentNoteIndex >= currentSong.notes.length || 
+        firstPlayableNoteIndex(currentSong.notes, currentNoteIndex) < 0) {
+      setAppState('complete');
+      return;
+    }
 
     const nextPlayable = firstPlayableNoteIndex(currentSong.notes, currentNoteIndex);
     if (nextPlayable !== currentNoteIndex) {
@@ -230,7 +236,7 @@ export const PracticeScreen: React.FC = () => {
     }
     scoreRendererRef.current?.clearHighlight(currentNoteIndex - 1);
     scoreRendererRef.current?.highlightNote(currentNoteIndex, 'blue');
-  }, [currentNoteIndex, currentSong, skipRests]);
+  }, [currentNoteIndex, currentSong, skipRests, setAppState]);
 
   const startAudioLoop = () => {
     const loop = () => {
