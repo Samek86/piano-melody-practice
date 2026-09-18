@@ -150,55 +150,29 @@ export class ScoreRenderer {
 
       const measuresPerWindow = 1;
       const startMeasure = this.currentMeasureWindow;
-      let endMeasure = Math.min(startMeasure + measuresPerWindow, this.measures.length);
-      
-      // Check if we need to include the previous measure for a cross-measure tie
-      let actualStartMeasure = startMeasure;
-      if (startMeasure > 0 && startMeasure < this.measures.length) {
-        const currentMeasure = this.measures[startMeasure];
-        const prevMeasure = this.measures[startMeasure - 1];
-        if (prevMeasure.notes.length > 0 && currentMeasure.notes.length > 0) {
-          const lastNoteOfPrev = prevMeasure.notes[prevMeasure.notes.length - 1];
-          const firstNoteOfCurrent = currentMeasure.notes[0];
-          // If previous measure's last note has tie and current measure's first note is same pitch
-          if (lastNoteOfPrev.tie && !isRest(firstNoteOfCurrent) && 
-              lastNoteOfPrev.pitch === firstNoteOfCurrent.pitch) {
-            // Include previous measure in render to draw the cross-measure tie
-            actualStartMeasure = startMeasure - 1;
-            endMeasure = Math.min(startMeasure + measuresPerWindow, this.measures.length);
-          }
-        }
-      }
-      
-      const measuresToRender = this.measures.slice(actualStartMeasure, endMeasure);
+      const endMeasure = Math.min(startMeasure + measuresPerWindow, this.measures.length);
+      const measuresToRender = this.measures.slice(startMeasure, endMeasure);
       if (measuresToRender.length === 0) return;
 
       // Target ~3× zoom: stave ~250–280px wide (wider → notes fit; too wide → shrinks).
       const marginX = 24;
-      const isFirstMeasure = actualStartMeasure === 0;
+      const isFirstMeasure = startMeasure === 0;
       const preludeWidth = stavePreludeWidth({ key: this.key, isFirstMeasure });
       const notesInView = measuresToRender.reduce((n, m) => n + m.notes.length, 0);
       const noteSlot = 40; // room inside measure without killing ~3× zoom
       const endPad = 36; // space before right barline
-      
-      // Calculate total width needed for all measures
-      const totalMeasures = measuresToRender.length;
       const contentW = preludeWidth + Math.max(1, notesInView) * noteSlot + endPad;
-      const availableWidth = width - 2 * marginX;
-      const staveWidth = Math.min(availableWidth / totalMeasures, contentW / totalMeasures);
+      const staveWidth = Math.min(width - 2 * marginX, contentW);
+      const staveX = Math.max(marginX, (width - staveWidth) / 2);
       const staveY = Math.max(40, height / 2 - 30);
 
-      let previousMeasureLastVexNote: StaveNote | null = null;
-      let previousMeasureLastNote: Note | null = null;
-
       measuresToRender.forEach((measure, idx) => {
-        const actualMeasureIdx = actualStartMeasure + idx;
-        const staveX = marginX + (idx * staveWidth);
+        const actualMeasureIdx = startMeasure + idx;
         const stave = new Stave(staveX, staveY, staveWidth);
 
         stave.addClef('treble');
         const keySpec = vexKeySignature(this.key);
-        if (keySpec && idx === 0) {
+        if (keySpec) {
           stave.addKeySignature(keySpec);
         }
         if (actualMeasureIdx === 0) {
@@ -253,8 +227,7 @@ export class ScoreRenderer {
         voice.setStrict(false);
         voice.addTickables(vexNotes);
 
-        const measurePreludeWidth = (idx === 0) ? preludeWidth : 60; // Subsequent measures need less space (just clef)
-        const formatterWidth = staveWidth - measurePreludeWidth - 12;
+        const formatterWidth = staveWidth - preludeWidth - 12;
         new Formatter().joinVoices([voice]).format([voice], Math.max(40, formatterWidth));
         voice.draw(context, stave);
 
