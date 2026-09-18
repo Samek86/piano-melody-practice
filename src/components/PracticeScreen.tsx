@@ -44,8 +44,14 @@ export const PracticeScreen: React.FC = () => {
   const lastPublishedFreqRef = React.useRef<number | null>(null);
   const currentNoteIndexRef = React.useRef(currentNoteIndex);
   const lastMicUiRef = React.useRef(0);
+  const wrongNoteTimeoutRef = React.useRef<number | null>(null);
   React.useEffect(() => {
     currentNoteIndexRef.current = currentNoteIndex;
+    // Clear any pending wrong-note timeout when advancing to next note
+    if (wrongNoteTimeoutRef.current !== null) {
+      window.clearTimeout(wrongNoteTimeoutRef.current);
+      wrongNoteTimeoutRef.current = null;
+    }
   }, [currentNoteIndex]);
 
   useLayoutEffect(() => {
@@ -205,6 +211,11 @@ export const PracticeScreen: React.FC = () => {
         cancelAnimationFrame(animationFrameRef.current);
         animationFrameRef.current = null;
       }
+      // Clear any pending wrong-note timeout on unmount
+      if (wrongNoteTimeoutRef.current !== null) {
+        window.clearTimeout(wrongNoteTimeoutRef.current);
+        wrongNoteTimeoutRef.current = null;
+      }
       audioCaptureRef.current?.cleanup();
       audioCaptureRef.current = null;
       pitchDetectorRef.current = null;
@@ -306,9 +317,18 @@ export const PracticeScreen: React.FC = () => {
           matchResult.centsOff != null &&
           Math.abs(matchResult.centsOff) > settings.toleranceCents
         ) {
-          scoreRendererRef.current?.highlightNote(noteIdx, 'red');
-          setTimeout(() => {
-            scoreRendererRef.current?.highlightNote(noteIdx, 'blue');
+          const wrongIdx = noteIdx;
+          scoreRendererRef.current?.highlightNote(wrongIdx, 'red');
+          // Clear any previous timeout
+          if (wrongNoteTimeoutRef.current !== null) {
+            window.clearTimeout(wrongNoteTimeoutRef.current);
+          }
+          // Only restore blue if this note is still current (user hasn't advanced)
+          wrongNoteTimeoutRef.current = window.setTimeout(() => {
+            wrongNoteTimeoutRef.current = null;
+            if (currentNoteIndexRef.current === wrongIdx) {
+              scoreRendererRef.current?.highlightNote(wrongIdx, 'blue');
+            }
           }, 300);
         }
       } catch (err) {
@@ -346,10 +366,19 @@ export const PracticeScreen: React.FC = () => {
       scoreRendererRef.current?.highlightNote(currentNoteIndex, 'green');
       onNoteMatched();
     } else {
-      scoreRendererRef.current?.highlightNote(currentNoteIndex, 'red');
+      const wrongIdx = currentNoteIndex;
+      scoreRendererRef.current?.highlightNote(wrongIdx, 'red');
       onWrongNote();
-      setTimeout(() => {
-        scoreRendererRef.current?.highlightNote(currentNoteIndex, 'blue');
+      // Clear any previous timeout
+      if (wrongNoteTimeoutRef.current !== null) {
+        window.clearTimeout(wrongNoteTimeoutRef.current);
+      }
+      // Only restore blue if this note is still current (user hasn't advanced)
+      wrongNoteTimeoutRef.current = window.setTimeout(() => {
+        wrongNoteTimeoutRef.current = null;
+        if (currentNoteIndexRef.current === wrongIdx) {
+          scoreRendererRef.current?.highlightNote(wrongIdx, 'blue');
+        }
       }, 300);
     }
   };

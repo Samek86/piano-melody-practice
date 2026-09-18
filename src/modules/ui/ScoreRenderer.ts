@@ -357,6 +357,12 @@ export class ScoreRenderer {
       red: 'wrong' as NoteState
     };
 
+    // Safety: do not demote completed notes back to current (blue).
+    // This prevents stale wrong-note timeouts from turning completed notes blue.
+    if (color === 'blue' && this.noteStates[index].state === 'completed') {
+      return;
+    }
+
     this.noteStates[index].state = stateMap[color];
 
     const noteInfo = this.noteToVexIndexMap.get(index);
