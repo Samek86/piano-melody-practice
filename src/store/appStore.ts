@@ -6,7 +6,11 @@ const SETTINGS_KEY = 'piano-practice-settings';
 
 function loadSettings() {
   const defaults = {
+    /** Symmetric fallback / legacy; sharp side stays near this. */
     toleranceCents: 50,
+    /** Mic: accept more flat than sharp (detected pitch often reads flat vs A440). */
+    flatToleranceCents: 80,
+    sharpToleranceCents: 50,
     sustainWindowMs: 200,
     showNoteNames: true,
     showFingerNumbers: false,
@@ -66,11 +70,19 @@ interface AppStore {
   // Settings
   settings: {
     toleranceCents: number;
+    /** Mic match: max cents below target (negative side). Wider than sharp by design. */
+    flatToleranceCents: number;
+    /** Mic match: max cents above target (positive side). */
+    sharpToleranceCents: number;
     sustainWindowMs: number;
     showNoteNames: boolean;
     showFingerNumbers: boolean;
     testMode: boolean;
-    /** Internal reference pitch for A4 in Hz (fixed at 440). ±50 cent tolerance covers 438-445 Hz pianos. */
+    /**
+     * Internal reference pitch for A4 in Hz (fixed at 440).
+     * Pianos near A4=445 (~+20¢ vs 440) plus mic under-reading need extra flat-side room;
+     * mic tolerance is asymmetric [-flatToleranceCents, +sharpToleranceCents] (default [-80, +50]).
+     */
     a4Hz: number;
   };
   

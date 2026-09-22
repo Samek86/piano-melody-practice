@@ -1,11 +1,55 @@
 import type { MatchResult } from '../../types';
-import { midiToFrequency, calculateCentsOff, frequencyToMidi } from '../../utils.ts';
+import { frequencyToMidi } from '../../utils.ts';
 
 export interface NoteMatchingConfig {
+  /**
+   * Symmetric fallback when flat/sharp bounds are omitted.
+   * Mic path prefers asymmetric bounds (see flatToleranceCents / sharpToleranceCents).
+   */
   toleranceCents: number;
+  /**
+   * How many cents below the target still count as a match (flat side).
+   * Defaults to toleranceCents when omitted.
+   * Mic default is wider than sharp (e.g. 80) because detected pitch often reads flat
+   * vs A440 internal tuning / ~A445 pianos.
+   */
+  flatToleranceCents?: number;
+  /**
+   * How many cents above the target still count as a match (sharp side).
+   * Defaults to toleranceCents when omitted (typically ~50).
+   */
+  sharpToleranceCents?: number;
   sustainWindowMs: number;
   debounceMs: number;
   a4Hz?: number;
+}
+
+/** True when centsOff is within [-flatTolerance, +sharpTolerance]. */
+export function isWithinCentsTolerance(
+  centsOff: number,
+  flatToleranceCents: number,
+  sharpToleranceCents: number
+): boolean {
+  return centsOff >= -flatToleranceCents && centsOff <= sharpToleranceCents;
+}
+
+/** Continuous (unrounded) MIDI from frequency. */
+export function frequencyToContinuousMidi(frequency: number, a4Hz: number): number {
+  return 69 + 12 * Math.log2(frequency / a4Hz);
+}
+
+/**
+ * Nearest MIDI of `pitchClass` to `continuousMidi`, and cents from that pitch.
+ * Used so flat-of-target frequencies (which round to the note below) can still match.
+ */
+export function centsToPitchClass(
+  continuousMidi: number,
+  pitchClass: number
+): { nearestMidi: number; centsOff: number } {
+  const pc = ((pitchClass % 12) + 12) % 12;
+  const nearestMidi = Math.round((continuousMidi - pc) / 12) * 12 + pc;
+  const centsOff = (continuousMidi - nearestMidi) * 100;
+  return { nearestMidi, centsOff };
 }
 
 const RELEASE_DIP_RATIO = 0.75;
@@ -29,6 +73,13 @@ export class NoteMatcher {
     this.config = config;
   }
 
+  /** Resolved flat/sharp windows for the mic match path. */
+  getCentsToleranceBounds(): { flatToleranceCents: number; sharpToleranceCents: number } {
+    const flatToleranceCents = this.config.flatToleranceCents ?? this.config.toleranceCents;
+    const sharpToleranceCents = this.config.sharpToleranceCents ?? this.config.toleranceCents;
+    return { flatToleranceCents, sharpToleranceCents };
+  }
+
   setTargetNote(midiNote: number): void {
     this.currentTargetNote = midiNote;
     this.matchStartTime = null;
@@ -39,7 +90,7 @@ export class NoteMatcher {
   }
 
   private getPitchClass(midiNote: number): number {
-    return midiNote % 12;
+    return ((midiNote % 12) + 12) % 12;
   }
 
   private isPitchClassMatch(detected: number, target: number): boolean {
@@ -110,59 +161,48 @@ export class NoteMatcher {
     }
 
     const a4 = this.config.a4Hz ?? 440;
+    const { flatToleranceCents, sharpToleranceCents } = this.getCentsToleranceBounds();
+
+    // Continuous MIDI so slightly-flat pitches (which Math.round to the note below)
+    // can still count as the target pitch class within flatToleranceCents.
+    const continuousMidi = frequencyToContinuousMidi(detectedFrequency, a4);
     const detectedMidi = frequencyToMidi(detectedFrequency, a4);
-    const detectedPitchClass = this.getPitchClass(detectedMidi);
-    const isPitchClassCorrect = this.isPitchClassMatch(detectedMidi, this.currentTargetNote);
-
-    if (!isPitchClassCorrect) {
-      this.matchStartTime = null;
-      this.clearReleaseGate();
-      const targetFreq = midiToFrequency(this.currentTargetNote, a4);
-      const centsOff = calculateCentsOff(detectedFrequency, targetFreq);
-      return this.createResult(false, 0, detectedMidi, centsOff);
-    }
-
-    if (this.requiresRelease && detectedPitchClass === this.lastMatchedPitchClass) {
-      this.matchStartTime = null;
-      const targetFreq = midiToFrequency(this.currentTargetNote, a4);
-      const centsOff = calculateCentsOff(detectedFrequency, targetFreq);
-      return this.createResult(false, 0, detectedMidi, centsOff);
-    }
-
-    if (this.requiresRelease) {
-      this.clearReleaseGate();
-    }
-
     const targetPitchClass = this.getPitchClass(this.currentTargetNote);
-    const detectedOctave = Math.floor(detectedMidi / 12);
-    const closestTargetInDetectedOctave = detectedOctave * 12 + targetPitchClass;
-    
-    const closestTargetFreq = midiToFrequency(closestTargetInDetectedOctave, a4);
-    const centsOff = calculateCentsOff(detectedFrequency, closestTargetFreq);
+    const { nearestMidi, centsOff } = centsToPitchClass(continuousMidi, targetPitchClass);
+    const isMatch = isWithinCentsTolerance(centsOff, flatToleranceCents, sharpToleranceCents);
 
-    // Check if it's within tolerance (using the closest octave)
-    const isMatch = Math.abs(centsOff) <= this.config.toleranceCents;
-
-    if (isMatch) {
-      if (!this.matchStartTime) {
-        this.matchStartTime = now;
-      }
-      const sustainedMs = now - this.matchStartTime;
-
-      if (sustainedMs >= this.config.sustainWindowMs) {
-        this.lastMatchTime = now;
+    // Still holding the previously matched pitch class (cents-based, not rounded MIDI)
+    if (this.requiresRelease && this.lastMatchedPitchClass !== null) {
+      const held = centsToPitchClass(continuousMidi, this.lastMatchedPitchClass);
+      if (isWithinCentsTolerance(held.centsOff, flatToleranceCents, sharpToleranceCents)) {
         this.matchStartTime = null;
-        // Record the matched pitch class and require release for next identical note
-        this.lastMatchedPitchClass = detectedPitchClass;
-        this.armReleaseGate(peakLevel);
-        return this.createResult(true, sustainedMs, detectedMidi, centsOff);
+        return this.createResult(false, 0, detectedMidi, centsOff);
       }
+      this.clearReleaseGate();
+    }
 
-      return this.createResult(false, sustainedMs, detectedMidi, centsOff);
-    } else {
+    if (!isMatch) {
       this.matchStartTime = null;
+      // Wrong pitch class / out of tune: clear release gate like the old PC mismatch path
+      this.clearReleaseGate();
       return this.createResult(false, 0, detectedMidi, centsOff);
     }
+
+    if (!this.matchStartTime) {
+      this.matchStartTime = now;
+    }
+    const sustainedMs = now - this.matchStartTime;
+
+    if (sustainedMs >= this.config.sustainWindowMs) {
+      this.lastMatchTime = now;
+      this.matchStartTime = null;
+      // Record target pitch class (not rounded detection) so flat D still gates as D
+      this.lastMatchedPitchClass = targetPitchClass;
+      this.armReleaseGate(peakLevel);
+      return this.createResult(true, sustainedMs, nearestMidi, centsOff);
+    }
+
+    return this.createResult(false, sustainedMs, detectedMidi, centsOff);
   }
 
   matchInstant(midiNote: number): MatchResult {
