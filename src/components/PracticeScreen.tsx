@@ -4,7 +4,7 @@ import { ScoreRenderer } from '../modules/ui/ScoreRenderer';
 import { AudioCapture } from '../modules/audio/AudioCapture';
 import { takeBootstrappedAudioCapture } from '../modules/audio/audioSession';
 import { PitchDetector } from '../modules/audio/PitchDetector';
-import { NoteMatcher } from '../modules/game/NoteMatcher';
+import { NoteMatcher, isWithinCentsTolerance } from '../modules/game/NoteMatcher';
 import { SoftKeyboard } from './SoftKeyboard';
 import { midiToNoteName, frequencyToMidi, isRest, firstPlayableNoteIndex, reconcileOctaves } from '../utils';
 
@@ -191,6 +191,8 @@ export const PracticeScreen: React.FC = () => {
 
     noteMatcherRef.current = new NoteMatcher({
       toleranceCents: settings.toleranceCents,
+      flatToleranceCents: settings.flatToleranceCents,
+      sharpToleranceCents: settings.sharpToleranceCents,
       sustainWindowMs: settings.sustainWindowMs,
       debounceMs: 70,
       a4Hz: settings.a4Hz
@@ -220,7 +222,15 @@ export const PracticeScreen: React.FC = () => {
       audioCaptureRef.current = null;
       pitchDetectorRef.current = null;
     };
-  }, [currentSong, settings.testMode, settings.a4Hz, settings.toleranceCents, settings.sustainWindowMs]);
+  }, [
+    currentSong,
+    settings.testMode,
+    settings.a4Hz,
+    settings.toleranceCents,
+    settings.flatToleranceCents,
+    settings.sharpToleranceCents,
+    settings.sustainWindowMs
+  ]);
 
   React.useEffect(() => {
     if (!currentSong || !noteMatcherRef.current) return;
@@ -331,7 +341,11 @@ export const PracticeScreen: React.FC = () => {
         } else if (
           frequency &&
           matchResult.centsOff != null &&
-          Math.abs(matchResult.centsOff) > settings.toleranceCents
+          !isWithinCentsTolerance(
+            matchResult.centsOff,
+            settings.flatToleranceCents,
+            settings.sharpToleranceCents
+          )
         ) {
           const wrongIdx = noteIdx;
           scoreRendererRef.current?.highlightNote(wrongIdx, 'red');

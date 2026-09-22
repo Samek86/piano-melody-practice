@@ -1,11 +1,17 @@
 import { test, beforeEach, afterEach } from 'node:test';
 import assert from 'node:assert/strict';
-import { NoteMatcher } from './NoteMatcher.ts';
+import { NoteMatcher, isWithinCentsTolerance } from './NoteMatcher.ts';
+import { midiToFrequency } from '../../utils.ts';
 
 const C4 = 261.63;
 const D4 = 293.66;
 const HIGH = 0.2;
 const LOW = 0.04;
+
+/** Shift a frequency by the given number of cents (negative = flat). */
+function freqCents(baseHz: number, cents: number): number {
+  return baseHz * Math.pow(2, cents / 1200);
+}
 
 let now = 0;
 const realNow = Date.now;
@@ -19,12 +25,13 @@ afterEach(() => {
   Date.now = realNow;
 });
 
-function createMatcher() {
+function createMatcher(overrides: Partial<ConstructorParameters<typeof NoteMatcher>[0]> = {}) {
   return new NoteMatcher({
     toleranceCents: 50,
     sustainWindowMs: 50,
     debounceMs: 40,
-    a4Hz: 440
+    a4Hz: 440,
+    ...overrides
   });
 }
 
@@ -124,4 +131,90 @@ test('release gate auto-clears after timeout with renewed energy', () => {
   // Now should be able to match again with sustain
   const retriggered = tick(matcher, C4, HIGH, 60);
   assert.equal(retriggered.matched, true);
+});
+
+test('isWithinCentsTolerance accepts asymmetric flat/sharp windows', () => {
+  assert.equal(isWithinCentsTolerance(-80, 80, 50), true);
+  assert.equal(isWithinCentsTolerance(-81, 80, 50), false);
+  assert.equal(isWithinCentsTolerance(50, 80, 50), true);
+  assert.equal(isWithinCentsTolerance(51, 80, 50), false);
+  assert.equal(isWithinCentsTolerance(-60, 80, 50), true);
+});
+
+test('slightly flat D4 matches with asymmetric mic tolerance [-80, +50]', () => {
+  // Mimics mic under-reading / piano ~A445 vs internal A440: ~60¢ flat still OK
+  const matcher = createMatcher({
+    flatToleranceCents: 80,
+    sharpToleranceCents: 50
+  });
+  matcher.setTargetNote(62); // D4
+  const d4Exact = midiToFrequency(62, 440);
+  const flat60 = freqCents(d4Exact, -60);
+
+  const result = tick(matcher, flat60, HIGH, 60);
+  assert.equal(result.matched, true);
+  assert.ok(result.centsOff != null && result.centsOff < -50);
+});
+
+test('too-flat D4 is rejected beyond flatToleranceCents', () => {
+  const matcher = createMatcher({
+    flatToleranceCents: 80,
+    sharpToleranceCents: 50
+  });
+  matcher.setTargetNote(62);
+  const d4Exact = midiToFrequency(62, 440);
+  const flat95 = freqCents(d4Exact, -95);
+
+  const result = tick(matcher, flat95, HIGH, 60);
+  assert.equal(result.matched, false);
+});
+
+test('slightly sharp D4 still matches within sharpToleranceCents', () => {
+  const matcher = createMatcher({
+    flatToleranceCents: 80,
+    sharpToleranceCents: 50
+  });
+  matcher.setTargetNote(62);
+  const d4Exact = midiToFrequency(62, 440);
+  const sharp45 = freqCents(d4Exact, 45);
+
+  const result = tick(matcher, sharp45, HIGH, 60);
+  assert.equal(result.matched, true);
+});
+
+test('too-sharp D4 is rejected beyond sharpToleranceCents (not blown open)', () => {
+  const matcher = createMatcher({
+    flatToleranceCents: 80,
+    sharpToleranceCents: 50
+  });
+  matcher.setTargetNote(62);
+  const d4Exact = midiToFrequency(62, 440);
+  const sharp65 = freqCents(d4Exact, 65);
+
+  const result = tick(matcher, sharp65, HIGH, 60);
+  assert.equal(result.matched, false);
+});
+
+test('omitting flat/sharp falls back to symmetric toleranceCents', () => {
+  const matcher = createMatcher({ toleranceCents: 50 });
+  matcher.setTargetNote(62);
+  const d4Exact = midiToFrequency(62, 440);
+
+  assert.equal(tick(matcher, freqCents(d4Exact, -45), HIGH, 60).matched, true);
+  // Reset sustain / debounce between attempts
+  matcher.reset();
+  matcher.setTargetNote(62);
+  assert.equal(tick(matcher, freqCents(d4Exact, -60), HIGH, 60).matched, false);
+});
+
+test('matchInstant ignores cents and stays pitch-class only', () => {
+  const matcher = createMatcher({
+    flatToleranceCents: 80,
+    sharpToleranceCents: 50
+  });
+  matcher.setTargetNote(62); // D4
+  // Soft keyboard: any D (e.g. D5 = 74) matches instantly
+  const instant = matcher.matchInstant(74);
+  assert.equal(instant.matched, true);
+  assert.equal(instant.centsOff, 0);
 });
