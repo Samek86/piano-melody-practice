@@ -7,7 +7,7 @@
     "dev": "vite",
     "build": "tsc && vite build",
     "preview": "vite preview",
-    "test": "node --experimental-strip-types --test $(find src -name '*.test.ts' -print | sort)"
+    "test": "node --experimental-strip-types --test $(find src -name '*.test.ts' -print | sort) && python3 -m unittest server.test_song_override_server"
   },
   "dependencies": {
     "pitchfinder": "^2.3.4",

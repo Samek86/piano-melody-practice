@@ -1,5 +1,7 @@
 # Dependencies
 node_modules/
+__pycache__/
+*.pyc
 
 # Build output
 dist/
@@ -21,6 +23,11 @@ dist-ssr/
 .env
 .env.local
 .env.*.local
+.secrets/
+
+# Runtime song store (server data; never part of the static deploy)
+song-overrides/
+song-backups/
 
 # Local deploy notes (server IP / SSH paths — never commit)
 piano-tsutaai-com-배포방법.md
