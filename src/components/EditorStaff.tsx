@@ -15,7 +15,6 @@ interface Props {
   pickupBeats?: number;
   songKey: string;
   selectedIndex: number;
-  playingIndex: number;
   onSelect: (index: number) => void;
   onInsert: (index: number) => void;
   onPitchDelta: (index: number, deltaSteps: number, phase: 'move' | 'end' | 'cancel') => void;
@@ -43,8 +42,7 @@ export const EditorStaff: React.FC<Props> = (props) => {
         timeSignature: current.timeSignature,
         pickupBeats: current.pickupBeats,
         key: current.songKey,
-        selectedIndex: current.selectedIndex,
-        playingIndex: current.playingIndex
+        selectedIndex: current.selectedIndex
       });
     };
 
@@ -164,10 +162,9 @@ export const EditorStaff: React.FC<Props> = (props) => {
       timeSignature: props.timeSignature,
       pickupBeats: props.pickupBeats,
       key: props.songKey,
-      selectedIndex: props.selectedIndex,
-      playingIndex: props.playingIndex
+      selectedIndex: props.selectedIndex
     });
-  }, [props.notes, props.timeSignature, props.pickupBeats, props.songKey, props.selectedIndex, props.playingIndex]);
+  }, [props.notes, props.timeSignature, props.pickupBeats, props.songKey, props.selectedIndex]);
 
   return <div ref={hostRef} className="editor-score-host" data-testid="score-host" />;
 };

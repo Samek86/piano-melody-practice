@@ -1,9 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { allSongs } from '../data/songIndex';
-import { useAppStore } from '../store/appStore';
 import type { Song } from '../types';
 import { EditorStaff } from './EditorStaff';
-import { createPreviewPlayer, type PreviewPlayer } from '../modules/editor/playback';
 import { useOverrideIds, useSongCatalog, clearOverride, saveOverride } from '../modules/editor/songOverrides';
 import {
   DURATION_VALUES,
@@ -20,6 +18,7 @@ import {
   respellForKey,
   shiftDiatonic,
   snapshotToSong,
+  songReadyToSave,
   songToSnapshot,
   splitMeasures,
   stepNear,
@@ -62,12 +61,10 @@ function initialSnapshot(songs: Song[]): EditorSnapshot {
 export const StaffEditor: React.FC<{ onExit: () => void }> = ({ onExit }) => {
   const catalog = useSongCatalog();
   const overrideIds = useOverrideIds();
-  const selectSong = useAppStore((state) => state.selectSong);
   const [snapshot, setSnapshot] = useState<EditorSnapshot>(() => initialSnapshot(catalog));
   const [tool, setTool] = useState<Tool>({ duration: 4, dotted: false, rest: false });
   const [dirty, setDirty] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
-  const [playingIndex, setPlayingIndex] = useState(-1);
   const [historyTick, setHistoryTick] = useState(0);
   const stateRef = useRef(snapshot);
   const toolRef = useRef(tool);
@@ -75,16 +72,8 @@ export const StaffEditor: React.FC<{ onExit: () => void }> = ({ onExit }) => {
   const future = useRef<EditorSnapshot[]>([]);
   const dragBase = useRef<EditorSnapshot | null>(null);
   const historyField = useRef<string | null>(null);
-  const playerRef = useRef<PreviewPlayer | null>(null);
   stateRef.current = snapshot;
   toolRef.current = tool;
-
-  const player = () => {
-    playerRef.current ??= createPreviewPlayer();
-    return playerRef.current;
-  };
-
-  useEffect(() => () => playerRef.current?.stop(), []);
 
   const bumpHistory = () => setHistoryTick((tick) => tick + 1);
 
@@ -92,8 +81,6 @@ export const StaffEditor: React.FC<{ onExit: () => void }> = ({ onExit }) => {
     recipe: (draft: EditorSnapshot) => void,
     options?: { history?: boolean; dirty?: boolean }
   ) {
-    playerRef.current?.stop();
-    setPlayingIndex(-1);
     const current = stateRef.current;
     const next = cloneSnapshot(current);
     recipe(next);
@@ -133,8 +120,6 @@ export const StaffEditor: React.FC<{ onExit: () => void }> = ({ onExit }) => {
 
   function loadSong(song: Song, force = false, dirtyAfter = false) {
     if (!force && !confirmDiscard()) return;
-    playerRef.current?.stop();
-    setPlayingIndex(-1);
     const next = songToSnapshot(song);
     past.current = [];
     future.current = [];
@@ -197,6 +182,22 @@ export const StaffEditor: React.FC<{ onExit: () => void }> = ({ onExit }) => {
     applyToSelection((event) => ({ ...event, rest, tie: rest ? false : event.tie }));
   }
 
+  function setFinger(raw: string) {
+    const event = stateRef.current.events[stateRef.current.cursor];
+    if (!event || event.rest) return;
+    if (raw === '') {
+      applyToSelection((current) => {
+        const next = { ...current };
+        delete next.finger;
+        return next;
+      });
+      return;
+    }
+    const finger = Number(raw);
+    if (!Number.isInteger(finger) || finger < 1 || finger > 5) return;
+    applyToSelection((current) => ({ ...current, finger }));
+  }
+
   function setAccidental(accidental: AccidentalChoice) {
     const event = stateRef.current.events[stateRef.current.cursor];
     if (!event || event.rest) return;
@@ -230,8 +231,6 @@ export const StaffEditor: React.FC<{ onExit: () => void }> = ({ onExit }) => {
   function undo() {
     const prev = past.current.pop();
     if (!prev) return;
-    playerRef.current?.stop();
-    setPlayingIndex(-1);
     future.current.push(cloneSnapshot(stateRef.current));
     stateRef.current = prev;
     setSnapshot(prev);
@@ -242,8 +241,6 @@ export const StaffEditor: React.FC<{ onExit: () => void }> = ({ onExit }) => {
   function redo() {
     const next = future.current.pop();
     if (!next) return;
-    playerRef.current?.stop();
-    setPlayingIndex(-1);
     past.current.push(cloneSnapshot(stateRef.current));
     stateRef.current = next;
     setSnapshot(next);
@@ -261,8 +258,6 @@ export const StaffEditor: React.FC<{ onExit: () => void }> = ({ onExit }) => {
       return;
     }
     if (!dragBase.current) {
-      playerRef.current?.stop();
-      setPlayingIndex(-1);
       dragBase.current = cloneSnapshot(stateRef.current);
     }
     const base = dragBase.current;
@@ -289,13 +284,9 @@ export const StaffEditor: React.FC<{ onExit: () => void }> = ({ onExit }) => {
   }
 
   function preparedSong(): Song | null {
-    const song = snapshotToSong(stateRef.current);
+    const song = songReadyToSave(stateRef.current);
     if (song.notes.length === 0) {
       setMessage('음표가 하나 이상 있어야 저장할 수 있습니다.');
-      return null;
-    }
-    if (!Number.isFinite(song.tempo) || song.tempo < 30 || song.tempo > 240) {
-      setMessage('템포는 30에서 240 사이로 맞춰 주세요.');
       return null;
     }
     return song;
@@ -305,25 +296,12 @@ export const StaffEditor: React.FC<{ onExit: () => void }> = ({ onExit }) => {
     const song = preparedSong();
     if (!song) return null;
     saveOverride(song);
-    const next = { ...stateRef.current, base: song };
+    const next = { ...stateRef.current, tempo: song.tempo, base: song };
     stateRef.current = next;
     setSnapshot(next);
     setDirty(false);
-    setMessage(`이 브라우저에 저장했습니다. 곡 목록의 「${song.titleKo}」로 연습할 수 있습니다. 배포된 원본 파일은 바뀌지 않습니다.`);
+    setMessage(`저장했습니다. 「${song.titleKo}」는 이 브라우저에만 남고, 배포된 원본 파일은 바뀌지 않습니다.`);
     return song;
-  }
-
-  function exportJson() {
-    const song = preparedSong();
-    if (!song) return;
-    const blob = new Blob([`${JSON.stringify(song, null, 2)}\n`], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `${song.id}.json`;
-    link.click();
-    URL.revokeObjectURL(url);
-    setMessage('JSON 파일을 내려받았습니다. 저장소에 반영하려면 해당 곡 파일을 이 내용으로 교체하면 됩니다.');
   }
 
   function revertOverride() {
@@ -340,16 +318,8 @@ export const StaffEditor: React.FC<{ onExit: () => void }> = ({ onExit }) => {
     setMessage('브라우저에만 있던 곡을 삭제했습니다.');
   }
 
-  function play(fromCursor: boolean) {
-    const current = stateRef.current;
-    const song = snapshotToSong(current);
-    const from = fromCursor ? Math.max(0, current.cursor) : 0;
-    player().play(song.notes, song.tempo, from, (index) => setPlayingIndex(index));
-  }
-
   function exit() {
     if (!confirmDiscard()) return;
-    playerRef.current?.stop();
     onExit();
   }
 
@@ -413,7 +383,7 @@ export const StaffEditor: React.FC<{ onExit: () => void }> = ({ onExit }) => {
             새 곡
           </button>
           <button type="button" className="tool-btn" onClick={exit}>
-            연습 화면
+            닫기
           </button>
         </div>
 
@@ -444,26 +414,6 @@ export const StaffEditor: React.FC<{ onExit: () => void }> = ({ onExit }) => {
               onChange={(event) => editField('title', (draft) => {
                 draft.title = event.target.value;
               })}
-            />
-          </label>
-          <label>
-            템포
-            <input
-              aria-label="템포"
-              type="number"
-              min={30}
-              max={240}
-              value={snapshot.tempo}
-              onFocus={() => {
-                historyField.current = null;
-              }}
-              onChange={(event) => {
-                const tempo = Number(event.target.value);
-                if (!Number.isFinite(tempo)) return;
-                editField('tempo', (draft) => {
-                  draft.tempo = tempo;
-                });
-              }}
             />
           </label>
           <label>
@@ -611,6 +561,24 @@ export const StaffEditor: React.FC<{ onExit: () => void }> = ({ onExit }) => {
           >
             붙임줄
           </button>
+          <label className="finger-field">
+            손가락
+            <select
+              aria-label="손가락"
+              className="finger-select"
+              data-testid="finger-select"
+              value={selected && !selected.rest && selected.finger ? String(selected.finger) : ''}
+              disabled={!selected || selected.rest}
+              onChange={(event) => setFinger(event.target.value)}
+            >
+              <option value="">없음</option>
+              <option value="1">1</option>
+              <option value="2">2</option>
+              <option value="3">3</option>
+              <option value="4">4</option>
+              <option value="5">5</option>
+            </select>
+          </label>
           <span className="sep" />
           <button type="button" className="tool-btn" data-testid="btn-add" onClick={() => addNote()}>
             추가
@@ -633,40 +601,8 @@ export const StaffEditor: React.FC<{ onExit: () => void }> = ({ onExit }) => {
         </div>
 
         <div className="editor-row">
-          <button type="button" className="tool-btn" data-testid="btn-play" onClick={() => play(false)}>
-            처음부터
-          </button>
-          <button type="button" className="tool-btn" data-testid="btn-play-cursor" onClick={() => play(true)}>
-            커서부터
-          </button>
-          <button
-            type="button"
-            className="tool-btn"
-            data-testid="btn-stop"
-            onClick={() => {
-              player().stop();
-              setPlayingIndex(-1);
-            }}
-          >
-            정지
-          </button>
           <button type="button" className="btn btn-primary" data-testid="btn-save" onClick={() => saveToBrowser()}>
-            연습에 적용
-          </button>
-          <button type="button" className="btn btn-secondary" data-testid="btn-export" onClick={exportJson}>
-            JSON 내보내기
-          </button>
-          <button
-            type="button"
-            className="tool-btn"
-            onClick={() => {
-              const song = saveToBrowser();
-              if (!song) return;
-              selectSong(song);
-              onExit();
-            }}
-          >
-            적용 후 연습
+            저장
           </button>
           <button
             type="button"
@@ -689,7 +625,6 @@ export const StaffEditor: React.FC<{ onExit: () => void }> = ({ onExit }) => {
           pickupBeats={pickup}
           songKey={snapshot.key}
           selectedIndex={snapshot.cursor}
-          playingIndex={playingIndex}
           onSelect={selectIndex}
           onInsert={(index) => addNote(index)}
           onPitchDelta={onPitchDelta}
@@ -711,7 +646,6 @@ export const StaffEditor: React.FC<{ onExit: () => void }> = ({ onExit }) => {
             {problems.under > 0 ? `부족 ${problems.under}` : ''}
           </span>
         )}
-        <span className="editor-hint">클릭 선택 · ▲▼ 또는 Shift+↑↓로 음높이 · 선택 음표는 Alt+드래그 · 다른 드래그는 스크롤 · ← → 이동 · 빈 자리 클릭 또는 추가로 삽입 · Delete 삭제</span>
       </div>
     </div>
   );

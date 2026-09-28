@@ -12,7 +12,6 @@ export interface EditorScoreOptions {
   pickupBeats?: number;
   key?: string;
   selectedIndex: number;
-  playingIndex: number;
 }
 
 const MEASURE_SLOT = 176;
@@ -130,7 +129,7 @@ export class EditorScore {
         });
       });
       this.drawTies(context, options.notes, drawn);
-      this.paint(options.selectedIndex, options.playingIndex);
+      this.paint(options.selectedIndex);
       svg.style.display = 'block';
     }
   }
@@ -166,12 +165,11 @@ export class EditorScore {
     });
   }
 
-  private paint(selectedIndex: number, playingIndex: number): void {
+  private paint(selectedIndex: number): void {
     const notes = this.container.querySelectorAll<SVGElement>('.vf-stavenote[data-note-index]');
     notes.forEach((note) => {
       const index = Number(note.getAttribute('data-note-index'));
       note.classList.toggle('is-selected', index === selectedIndex);
-      note.classList.toggle('is-playing', index === playingIndex && index !== selectedIndex);
       const glyph =
         (note.querySelector('.vf-notehead') as SVGElement | null) ??
         (note.querySelector('.vf-rest') as SVGElement | null) ??
@@ -180,9 +178,6 @@ export class EditorScore {
       if (index === selectedIndex) {
         glyph.style.fill = '#2563eb';
         glyph.style.stroke = '#1d4ed8';
-      } else if (index === playingIndex) {
-        glyph.style.fill = '#059669';
-        glyph.style.stroke = '#047857';
       } else {
         glyph.style.fill = '#111827';
         glyph.style.stroke = '#111827';
