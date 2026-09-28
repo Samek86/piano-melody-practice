@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { allSongs } from '../data/songIndex';
+import { useAppStore } from '../store/appStore';
 import type { Song } from '../types';
 import { EditorStaff } from './EditorStaff';
 import { useOverrideIds, useSongCatalog, clearOverride, saveOverride } from '../modules/editor/songOverrides';
@@ -61,6 +62,7 @@ function initialSnapshot(songs: Song[]): EditorSnapshot {
 export const StaffEditor: React.FC<{ onExit: () => void }> = ({ onExit }) => {
   const catalog = useSongCatalog();
   const overrideIds = useOverrideIds();
+  const selectSong = useAppStore((state) => state.selectSong);
   const [snapshot, setSnapshot] = useState<EditorSnapshot>(() => initialSnapshot(catalog));
   const [tool, setTool] = useState<Tool>({ duration: 4, dotted: false, rest: false });
   const [dirty, setDirty] = useState(false);
@@ -300,7 +302,9 @@ export const StaffEditor: React.FC<{ onExit: () => void }> = ({ onExit }) => {
     stateRef.current = next;
     setSnapshot(next);
     setDirty(false);
-    setMessage('저장했습니다. 이 브라우저에만 남고, 배포된 원본 파일은 바뀌지 않습니다.');
+    setMessage('저장했습니다. 연습 화면으로 이동합니다.');
+    selectSong(song);
+    onExit();
     return song;
   }
 
