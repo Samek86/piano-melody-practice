@@ -300,7 +300,7 @@ export const StaffEditor: React.FC<{ onExit: () => void }> = ({ onExit }) => {
     stateRef.current = next;
     setSnapshot(next);
     setDirty(false);
-    setMessage(`저장했습니다. 「${song.titleKo}」는 이 브라우저에만 남고, 배포된 원본 파일은 바뀌지 않습니다.`);
+    setMessage('저장했습니다. 이 브라우저에만 남고, 배포된 원본 파일은 바뀌지 않습니다.');
     return song;
   }
 
