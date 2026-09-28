@@ -3,7 +3,17 @@ import { allSongs } from '../data/songIndex';
 import { useAppStore } from '../store/appStore';
 import type { Song } from '../types';
 import { EditorStaff } from './EditorStaff';
-import { useOverrideIds, useSongCatalog, clearOverride, saveOverride } from '../modules/editor/songOverrides';
+import { useOverrideIds, useSongCatalog } from '../modules/editor/songOverrides';
+import {
+  deleteServerOverride,
+  ensureAdminToken,
+  putServerOverride,
+  rememberClearedOverride,
+  rememberSavedOverride,
+  serverSaveErrorMessage,
+  SongServerError,
+  syncServerOverrides
+} from '../modules/editor/songServerSync';
 import {
   DURATION_VALUES,
   EDITOR_KEYS,
@@ -66,8 +76,10 @@ export const StaffEditor: React.FC<{ onExit: () => void }> = ({ onExit }) => {
   const [snapshot, setSnapshot] = useState<EditorSnapshot>(() => initialSnapshot(catalog));
   const [tool, setTool] = useState<Tool>({ duration: 4, dotted: false, rest: false });
   const [dirty, setDirty] = useState(false);
+  const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [historyTick, setHistoryTick] = useState(0);
+  const savingRef = useRef(false);
   const stateRef = useRef(snapshot);
   const toolRef = useRef(tool);
   const past = useRef<EditorSnapshot[]>([]);
@@ -133,6 +145,14 @@ export const StaffEditor: React.FC<{ onExit: () => void }> = ({ onExit }) => {
     bumpHistory();
     if (next.events[next.cursor]) setTool(toolFrom(next.events[next.cursor]));
   }
+
+  useEffect(() => {
+    if (dirty) return;
+    const incoming = catalog.find((song) => song.id === stateRef.current.id);
+    if (!incoming) return;
+    if (JSON.stringify(incoming) === JSON.stringify(stateRef.current.base)) return;
+    loadSong(incoming, true, false);
+  }, [catalog, dirty]);
 
   function applyToSelection(patch: (event: StaffEvent) => StaffEvent) {
     if (stateRef.current.cursor < 0) return;
@@ -294,32 +314,78 @@ export const StaffEditor: React.FC<{ onExit: () => void }> = ({ onExit }) => {
     return song;
   }
 
-  function saveToBrowser(): Song | null {
-    const song = preparedSong();
-    if (!song) return null;
-    saveOverride(song);
-    const next = { ...stateRef.current, tempo: song.tempo, base: song };
-    stateRef.current = next;
-    setSnapshot(next);
-    setDirty(false);
-    setMessage('저장했습니다. 연습 화면으로 이동합니다.');
-    selectSong(song);
-    onExit();
-    return song;
+  function askToken(reprompt = false): string | null {
+    return ensureAdminToken((message) => window.prompt(message), reprompt);
   }
 
-  function revertOverride() {
+  async function withAdminToken(action: (token: string) => Promise<void>): Promise<boolean> {
+    let token = askToken();
+    if (!token) {
+      setMessage('서버에 저장하려면 관리자 토큰이 필요합니다.');
+      return false;
+    }
+    try {
+      await action(token);
+      return true;
+    } catch (error) {
+      if (!(error instanceof SongServerError) || error.status !== 401) {
+        setMessage(serverSaveErrorMessage(error));
+        return false;
+      }
+    }
+    token = askToken(true);
+    if (!token) {
+      setMessage('서버에 저장하려면 관리자 토큰이 필요합니다.');
+      return false;
+    }
+    try {
+      await action(token);
+      return true;
+    } catch (error) {
+      setMessage(serverSaveErrorMessage(error));
+      return false;
+    }
+  }
+
+  async function saveToBrowser(): Promise<Song | null> {
+    const song = preparedSong();
+    if (!song || savingRef.current) return null;
+    savingRef.current = true;
+    setSaving(true);
+    setMessage('서버에 저장하는 중입니다.');
+    try {
+      const saved = await withAdminToken((token) => putServerOverride(song, token));
+      if (!saved) return null;
+      rememberSavedOverride(song);
+      void syncServerOverrides();
+      const next = { ...stateRef.current, tempo: song.tempo, base: song };
+      stateRef.current = next;
+      setSnapshot(next);
+      setDirty(false);
+      setMessage('저장했습니다. 연습 화면으로 이동합니다.');
+      selectSong(song);
+      onExit();
+      return song;
+    } finally {
+      savingRef.current = false;
+      setSaving(false);
+    }
+  }
+
+  async function revertOverride() {
     const id = stateRef.current.id;
+    const removed = await withAdminToken((token) => deleteServerOverride(id, token));
+    if (!removed) return;
+    rememberClearedOverride(id);
     const stock = allSongs.find((song) => song.id === id);
-    clearOverride(id);
     if (stock) {
       loadSong(stock, true, false);
-      setMessage('브라우저 수정을 지우고 수록곡 원본으로 되돌렸습니다.');
+      setMessage('서버와 브라우저 수정을 지우고 수록곡으로 되돌렸습니다.');
       return;
     }
     const fallback = allSongs.find((song) => song.id === 'school-bell') ?? allSongs[0];
     if (fallback) loadSong(fallback, true, false);
-    setMessage('브라우저에만 있던 곡을 삭제했습니다.');
+    setMessage('서버와 브라우저에 있던 곡을 삭제했습니다.');
   }
 
   function exit() {
@@ -605,7 +671,7 @@ export const StaffEditor: React.FC<{ onExit: () => void }> = ({ onExit }) => {
         </div>
 
         <div className="editor-row">
-          <button type="button" className="btn btn-primary" data-testid="btn-save" onClick={() => saveToBrowser()}>
+          <button type="button" className="btn btn-primary" data-testid="btn-save" disabled={saving} onClick={() => void saveToBrowser()}>
             저장
           </button>
           <button

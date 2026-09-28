@@ -1,0 +1,10 @@
+# Add inside the existing piano.tsutaai.com server block.
+# Static files stay at /home/ubuntu/apps/piano/dist/ (rsync --delete).
+# Do not alias or root song-overrides/, song-backups/, or .secrets/.
+
+location /api/song-overrides {
+    proxy_pass http://127.0.0.1:8787;
+    proxy_http_version 1.1;
+    proxy_set_header Host $host;
+    client_max_body_size 1m;
+}

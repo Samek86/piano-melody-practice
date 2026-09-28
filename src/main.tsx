@@ -1,5 +1,8 @@
 import { createRoot } from 'react-dom/client';
 import App from './App';
+import { syncServerOverrides } from './modules/editor/songServerSync';
+
+void syncServerOverrides();
 
 // Always show crashes on device instead of a silent white screen
 function showFatal(message: string) {

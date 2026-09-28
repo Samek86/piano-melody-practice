@@ -29,7 +29,7 @@ export function getSongCatalogVersion(): number {
   return version;
 }
 
-function isSong(value: unknown): value is Song {
+export function isSong(value: unknown): value is Song {
   if (!value || typeof value !== 'object') return false;
   const song = value as Partial<Song>;
   return (
@@ -63,12 +63,22 @@ export function loadOverrides(): Record<string, Song> {
 
 function writeOverrides(overrides: Record<string, Song>): void {
   try {
-    if (typeof localStorage === 'undefined') return;
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(overrides));
+    if (typeof localStorage !== 'undefined') {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(overrides));
+    }
   } catch {
     /* ignore quota / private mode */
   }
   emit();
+}
+
+/** Replace the local cache without archiving or downloading. Used when the server list arrives. */
+export function replaceOverrides(overrides: Record<string, Song>): void {
+  const clean: Record<string, Song> = {};
+  for (const [id, song] of Object.entries(overrides)) {
+    if (isSong(song) && song.id === id) clean[id] = song;
+  }
+  writeOverrides(clean);
 }
 
 /** Local calendar time as `YYYYMMDD-HHMMSS` (backup stamp and download name). */

@@ -1,0 +1,17 @@
+[Unit]
+Description=Piano song override store
+After=network.target
+
+[Service]
+Type=simple
+User=ubuntu
+Group=ubuntu
+WorkingDirectory=/home/ubuntu/apps/piano
+Environment=PIANO_APP_ROOT=/home/ubuntu/apps/piano
+Environment=PIANO_BIND=127.0.0.1
+Environment=PIANO_PORT=8787
+ExecStart=/usr/bin/python3 /home/ubuntu/apps/piano/server/song_override_server.py
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target
