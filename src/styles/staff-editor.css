@@ -115,11 +115,25 @@
 
 .editor-score-host {
   min-height: 100%;
-  touch-action: pan-y;
+  touch-action: pan-x pan-y;
+  user-select: none;
+  -webkit-user-select: none;
 }
 
 .editor-score-host .vf-stavenote {
-  cursor: grab;
+  cursor: pointer;
+}
+
+.editor-score-host.is-pitch-drag,
+.editor-score-host.is-pitch-drag .vf-stavenote {
+  cursor: ns-resize;
+  touch-action: none;
+}
+
+.tool-btn.pitch-nudge {
+  font-size: 1rem;
+  line-height: 1;
+  min-width: 40px;
 }
 
 .editor-info {
