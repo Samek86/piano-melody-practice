@@ -28,6 +28,7 @@ import {
   type EditorSnapshot,
   type StaffEvent
 } from '../modules/editor/staffModel';
+import { editorKeyCommand } from '../modules/editor/editorKeys';
 import '../styles/staff-editor.css';
 
 interface Tool {
@@ -250,7 +251,15 @@ export const StaffEditor: React.FC<{ onExit: () => void }> = ({ onExit }) => {
     bumpHistory();
   }
 
-  function onPitchDelta(index: number, deltaSteps: number, phase: 'move' | 'end') {
+  function onPitchDelta(index: number, deltaSteps: number, phase: 'move' | 'end' | 'cancel') {
+    if (phase === 'cancel') {
+      const base = dragBase.current;
+      dragBase.current = null;
+      if (!base) return;
+      stateRef.current = base;
+      setSnapshot(base);
+      return;
+    }
     if (!dragBase.current) {
       playerRef.current?.stop();
       setPlayingIndex(-1);
@@ -348,29 +357,16 @@ export const StaffEditor: React.FC<{ onExit: () => void }> = ({ onExit }) => {
     const onKey = (event: KeyboardEvent) => {
       const tag = (event.target as HTMLElement | null)?.tagName;
       if (tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA') return;
-      if (event.key === 'ArrowLeft') {
-        event.preventDefault();
-        moveCursor(-1);
-      } else if (event.key === 'ArrowRight') {
-        event.preventDefault();
-        moveCursor(1);
-      } else if (event.key === 'ArrowUp') {
-        event.preventDefault();
-        shiftPitch(1);
-      } else if (event.key === 'ArrowDown') {
-        event.preventDefault();
-        shiftPitch(-1);
-      } else if (event.key === 'Delete' || event.key === 'Backspace') {
-        event.preventDefault();
-        deleteSelected();
-      } else if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'z') {
-        event.preventDefault();
-        if (event.shiftKey) redo();
-        else undo();
-      } else if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'y') {
-        event.preventDefault();
-        redo();
-      }
+      const command = editorKeyCommand(event);
+      if (!command) return;
+      event.preventDefault();
+      if (command === 'cursor-prev') moveCursor(-1);
+      else if (command === 'cursor-next') moveCursor(1);
+      else if (command === 'pitch-up') shiftPitch(1);
+      else if (command === 'pitch-down') shiftPitch(-1);
+      else if (command === 'delete') deleteSelected();
+      else if (command === 'undo') undo();
+      else if (command === 'redo') redo();
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
@@ -573,6 +569,29 @@ export const StaffEditor: React.FC<{ onExit: () => void }> = ({ onExit }) => {
             {tool.rest ? '쉼표' : '음표'}
           </button>
           <span className="sep" />
+          <button
+            type="button"
+            className="tool-btn pitch-nudge"
+            data-testid="btn-pitch-up"
+            aria-label="음높이 올리기"
+            title="음높이 올리기 (Shift+↑). 선택한 음표는 Alt+드래그"
+            onClick={() => shiftPitch(1)}
+            disabled={!selected || selected.rest}
+          >
+            ▲
+          </button>
+          <button
+            type="button"
+            className="tool-btn pitch-nudge"
+            data-testid="btn-pitch-down"
+            aria-label="음높이 내리기"
+            title="음높이 내리기 (Shift+↓). 선택한 음표는 Alt+드래그"
+            onClick={() => shiftPitch(-1)}
+            disabled={!selected || selected.rest}
+          >
+            ▼
+          </button>
+          <span className="sep" />
           {ACCIDENTALS.map((item) => (
             <button
               key={item.id}
@@ -692,7 +711,7 @@ export const StaffEditor: React.FC<{ onExit: () => void }> = ({ onExit }) => {
             {problems.under > 0 ? `부족 ${problems.under}` : ''}
           </span>
         )}
-        <span className="editor-hint">클릭 선택 · 위아래 드래그로 음높이 · ← → 이동 · 빈 자리 클릭 또는 추가로 삽입 · Delete 삭제</span>
+        <span className="editor-hint">클릭 선택 · ▲▼ 또는 Shift+↑↓로 음높이 · 선택 음표는 Alt+드래그 · 다른 드래그는 스크롤 · ← → 이동 · 빈 자리 클릭 또는 추가로 삽입 · Delete 삭제</span>
       </div>
     </div>
   );
