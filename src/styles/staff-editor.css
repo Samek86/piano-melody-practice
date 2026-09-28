@@ -164,7 +164,26 @@
   font-weight: 600;
 }
 
-.editor-hint {
-  color: #6b7280;
-  font-size: 0.78rem;
+.finger-field {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.82rem;
+  color: #4b5563;
+}
+
+.finger-field select {
+  font: inherit;
+  font-size: 0.86rem;
+  width: 4.6rem;
+  min-height: 34px;
+  padding: 4px 2px 4px 6px;
+  border: 1px solid #d6d3c9;
+  border-radius: 6px;
+  background: white;
+  color: #111827;
+}
+
+.finger-field select:disabled {
+  opacity: 0.45;
 }

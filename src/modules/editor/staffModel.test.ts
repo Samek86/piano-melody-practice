@@ -6,16 +6,18 @@ import { fileURLToPath } from 'node:url';
 import type { Note, Song } from '../../types.ts';
 import {
   MIDDLE_C_STEP,
+  blankSong,
   countMeasureProblems,
   describeCursor,
   eventToMidi,
   eventsToNotes,
   insertEvent,
   makeEvent,
+  EDITOR_SAVE_TEMPO,
   noteBeats,
   notesToEvents,
-  planPlayback,
   removeEvent,
+  songReadyToSave,
   respellForKey,
   shiftDiatonic,
   snapshotToSong,
@@ -115,23 +117,18 @@ test('ties and rests survive conversion', () => {
   assert.deepEqual(eventsToNotes(notesToEvents(notes, 'C'), 'C'), notes);
 });
 
-test('tied same pitch is one playback slice and is not replayed', () => {
-  const notes: Note[] = [
-    { pitch: 60, duration: 2, tie: true },
-    { pitch: 60, duration: 2 },
-    { pitch: 62, duration: 4 },
-    { rest: true, duration: 4 }
-  ];
-  const slices = planPlayback(notes, 0);
-  assert.equal(slices.length, 3);
-  assert.equal(slices[0].midi, 60);
-  assert.equal(slices[0].startIndex, 0);
-  assert.equal(slices[0].endIndex, 1);
-  assert.equal(slices[0].quarters, 4);
-  assert.equal(slices[1].midi, 62);
-  assert.equal(slices[2].midi, null);
-  assert.equal(planPlayback(notes, 1)[0].midi, 60);
-  assert.equal(planPlayback(notes, 1)[0].quarters, 2);
+test('saving forces tempo 100 and keeps or clears finger numbers', () => {
+  const song = blankSong();
+  song.tempo = 72;
+  song.notes = [{ pitch: 60, duration: 4, finger: 3 }];
+  const saved = songReadyToSave(songToSnapshot(song));
+  assert.equal(saved.tempo, EDITOR_SAVE_TEMPO);
+  assert.equal(saved.notes[0].finger, 3);
+
+  const cleared = songToSnapshot(saved);
+  delete cleared.events[0].finger;
+  assert.equal(songReadyToSave(cleared).notes[0].finger, undefined);
+  assert.equal(blankSong().tempo, 100);
 });
 
 test('4/4 quarter notes fill a measure and a leftover eighth underfills', () => {

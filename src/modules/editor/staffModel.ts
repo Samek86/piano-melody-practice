@@ -52,13 +52,6 @@ export interface MeasureInfo<T> {
   status: 'ok' | 'over' | 'under';
 }
 
-export interface PlaybackSlice {
-  startIndex: number;
-  endIndex: number;
-  midi: number | null;
-  quarters: number;
-}
-
 const EPS = 1e-6;
 
 const DURATION_KO: Record<number, string> = {
@@ -71,10 +64,6 @@ const DURATION_KO: Record<number, string> = {
 
 export function noteBeats(note: { duration: number; dotted?: boolean }, beatValue: number): number {
   return (beatValue / note.duration) * (note.dotted ? 1.5 : 1);
-}
-
-export function quarterLength(note: { duration: number; dotted?: boolean }): number {
-  return (4 / note.duration) * (note.dotted ? 1.5 : 1);
 }
 
 export function formatBeat(beat: number): string {
@@ -306,39 +295,6 @@ export function describeCursor(
   };
 }
 
-export function planPlayback(notes: Note[], fromIndex: number): PlaybackSlice[] {
-  const slices: PlaybackSlice[] = [];
-  let i = Math.max(0, fromIndex);
-  while (i < notes.length) {
-    const note = notes[i];
-    if (isRest(note) || note.pitch == null) {
-      slices.push({
-        startIndex: i,
-        endIndex: i,
-        midi: null,
-        quarters: quarterLength(note)
-      });
-      i += 1;
-      continue;
-    }
-    let end = i;
-    let quarters = quarterLength(note);
-    while (
-      notes[end].tie === true &&
-      end + 1 < notes.length &&
-      !isRest(notes[end + 1]) &&
-      notes[end + 1].pitch != null &&
-      notes[end + 1].pitch === notes[end].pitch
-    ) {
-      end += 1;
-      quarters += quarterLength(notes[end]);
-    }
-    slices.push({ startIndex: i, endIndex: end, midi: note.pitch, quarters });
-    i = end + 1;
-  }
-  return slices;
-}
-
 export function makeEvent(
   tool: { duration: number; dotted: boolean; rest: boolean },
   step: number
@@ -396,6 +352,15 @@ export function snapshotToSong(snapshot: EditorSnapshot): Song {
   return song;
 }
 
+/** Admin editor stores every song at this tempo. */
+export const EDITOR_SAVE_TEMPO = 100;
+
+export function songReadyToSave(snapshot: EditorSnapshot): Song {
+  const song = snapshotToSong(snapshot);
+  song.tempo = EDITOR_SAVE_TEMPO;
+  return song;
+}
+
 export function cloneSnapshot(snapshot: EditorSnapshot): EditorSnapshot {
   return {
     ...snapshot,
@@ -413,7 +378,7 @@ export function blankSong(): Song {
     origin: 'korean',
     composer: 'Custom',
     difficulty: 'beginner',
-    tempo: 100,
+    tempo: EDITOR_SAVE_TEMPO,
     timeSignature: [4, 4],
     key: 'C',
     notes: [
