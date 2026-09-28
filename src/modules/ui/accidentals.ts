@@ -175,6 +175,48 @@ export function createMeasureState(key?: string): MeasureAccidentalState {
  * - If the note differs, show the appropriate accidental
  * - Update the measure state so future notes of the same letter remember this alteration
  */
+type Spelling = { letter: string; alteration: '#' | 'b' | null };
+
+const PITCH_SPELLING: Record<number, { sharp: Spelling; flat: Spelling }> = {
+  0: { sharp: { letter: 'c', alteration: null }, flat: { letter: 'c', alteration: null } },
+  1: { sharp: { letter: 'c', alteration: '#' }, flat: { letter: 'd', alteration: 'b' } },
+  2: { sharp: { letter: 'd', alteration: null }, flat: { letter: 'd', alteration: null } },
+  3: { sharp: { letter: 'd', alteration: '#' }, flat: { letter: 'e', alteration: 'b' } },
+  4: { sharp: { letter: 'e', alteration: null }, flat: { letter: 'e', alteration: null } },
+  5: { sharp: { letter: 'f', alteration: null }, flat: { letter: 'f', alteration: null } },
+  6: { sharp: { letter: 'f', alteration: '#' }, flat: { letter: 'g', alteration: 'b' } },
+  7: { sharp: { letter: 'g', alteration: null }, flat: { letter: 'g', alteration: null } },
+  8: { sharp: { letter: 'g', alteration: '#' }, flat: { letter: 'a', alteration: 'b' } },
+  9: { sharp: { letter: 'a', alteration: null }, flat: { letter: 'a', alteration: null } },
+  10: { sharp: { letter: 'a', alteration: '#' }, flat: { letter: 'b', alteration: 'b' } },
+  11: { sharp: { letter: 'b', alteration: null }, flat: { letter: 'b', alteration: null } }
+};
+
+export function spellingForPitchClass(pitchClass: number, preferFlats: boolean): Spelling {
+  const row = PITCH_SPELLING[((pitchClass % 12) + 12) % 12];
+  return preferFlats ? row.flat : row.sharp;
+}
+
+/** Key-signature alteration for a letter, before any notes in the measure. */
+export function keyAlterationForLetter(letter: string, key?: string): '#' | 'b' | null {
+  const alt = createMeasureState(key).alterations.get(letter);
+  return alt === '#' || alt === 'b' ? alt : null;
+}
+
+/** Spell a MIDI pitch the same way the staff does for this key. */
+export function spellMidiPitch(midiNote: number, key?: string): {
+  letter: string;
+  octave: number;
+  alteration: '#' | 'b' | null;
+} {
+  const rounded = Math.round(midiNote);
+  const pitchClass = ((rounded % 12) + 12) % 12;
+  const octave = Math.floor(rounded / 12) - 1;
+  const keyInfo = key ? KEY_SIGNATURES[key] : undefined;
+  const { letter, alteration } = spellingForPitchClass(pitchClass, keyInfo?.preferFlats ?? false);
+  return { letter, octave, alteration };
+}
+
 export function accidentalForNote(
   midiNote: number,
   key: string | undefined,
@@ -183,25 +225,7 @@ export function accidentalForNote(
   const pitchClass = midiNote % 12;
   const keyInfo = key ? KEY_SIGNATURES[key] : undefined;
   const preferFlats = keyInfo?.preferFlats ?? false;
-
-  // Determine the base letter and alteration for this note
-  const noteInfo: Record<number, { sharp: { letter: string; alteration: string | null }; flat: { letter: string; alteration: string | null } }> = {
-    0: { sharp: { letter: 'c', alteration: null }, flat: { letter: 'c', alteration: null } },   // C
-    1: { sharp: { letter: 'c', alteration: '#' }, flat: { letter: 'd', alteration: 'b' } },     // C#/Db
-    2: { sharp: { letter: 'd', alteration: null }, flat: { letter: 'd', alteration: null } },   // D
-    3: { sharp: { letter: 'd', alteration: '#' }, flat: { letter: 'e', alteration: 'b' } },     // D#/Eb
-    4: { sharp: { letter: 'e', alteration: null }, flat: { letter: 'e', alteration: null } },   // E
-    5: { sharp: { letter: 'f', alteration: null }, flat: { letter: 'f', alteration: null } },   // F
-    6: { sharp: { letter: 'f', alteration: '#' }, flat: { letter: 'g', alteration: 'b' } },     // F#/Gb
-    7: { sharp: { letter: 'g', alteration: null }, flat: { letter: 'g', alteration: null } },   // G
-    8: { sharp: { letter: 'g', alteration: '#' }, flat: { letter: 'a', alteration: 'b' } },     // G#/Ab
-    9: { sharp: { letter: 'a', alteration: null }, flat: { letter: 'a', alteration: null } },   // A
-    10: { sharp: { letter: 'a', alteration: '#' }, flat: { letter: 'b', alteration: 'b' } },    // A#/Bb
-    11: { sharp: { letter: 'b', alteration: null }, flat: { letter: 'b', alteration: null } }   // B
-  };
-
-  const spelling = preferFlats ? noteInfo[pitchClass].flat : noteInfo[pitchClass].sharp;
-  const { letter, alteration } = spelling;
+  const { letter, alteration } = spellingForPitchClass(pitchClass, preferFlats);
 
   // Get the current alteration state for this letter in the measure
   const currentAlteration = measureState.alterations.get(letter);

@@ -1,21 +1,23 @@
 import React from 'react';
-import { allSongs, songsByDifficulty, songsByOrigin } from '../data/songIndex';
 import { useAppStore } from '../store/appStore';
 import { Origin, Difficulty } from '../types';
+import { useOverrideIds, useSongCatalog } from '../modules/editor/songOverrides';
 
 type FilterType = 'all' | Origin | Difficulty;
 
 export const SongSelection: React.FC = () => {
   const { selectSong, settings, updateSettings } = useAppStore();
+  const songs = useSongCatalog();
+  const overrideIds = useOverrideIds();
   const [filter, setFilter] = React.useState<FilterType>('beginner');
 
   const filteredSongs = React.useMemo(() => {
-    if (filter === 'all') return allSongs;
+    if (filter === 'all') return songs;
     if (filter === 'korean' || filter === 'japanese') {
-      return songsByOrigin[filter].filter(s => s.difficulty === 'beginner');
+      return songs.filter((song) => song.origin === filter && song.difficulty === 'beginner');
     }
-    return songsByDifficulty[filter as Difficulty];
-  }, [filter]);
+    return songs.filter((song) => song.difficulty === filter);
+  }, [filter, songs]);
 
   return (
     <div className="container">
@@ -73,6 +75,7 @@ export const SongSelection: React.FC = () => {
             >
               <div className="song-title">
                 {song.titleKo}
+                {overrideIds.has(song.id) && <span className="edited-badge">편집본</span>}
                 {song.origin === 'japanese' && song.titleJa && (
                   <div style={{ fontSize: '0.85rem', color: '#718096' }}>
                     {song.titleJa}
