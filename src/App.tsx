@@ -5,10 +5,21 @@ import { PracticeScreen } from './components/PracticeScreen';
 import { CompleteScreen } from './components/CompleteScreen';
 import { ErrorScreen } from './components/ErrorScreen';
 import { ErrorBoundary } from './components/ErrorBoundary';
+import { StaffEditor } from './components/StaffEditor';
+import { leaveAdmin, useAdminRoute } from './modules/editor/adminRoute';
 import './styles/app.css';
 
 function App() {
+  const admin = useAdminRoute();
   const { appState, startPractice, exitPractice } = useAppStore();
+
+  if (admin) {
+    return (
+      <div className="app">
+        <StaffEditor onExit={leaveAdmin} />
+      </div>
+    );
+  }
 
   return (
     <div className="app">

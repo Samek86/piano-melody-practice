@@ -15,6 +15,9 @@ function showFatal(message: string) {
 }
 
 window.addEventListener('error', (e) => {
+  const message = e.message || e.error?.message || '';
+  // Benign: fired when a resize callback changes layout in the same frame.
+  if (String(message).includes('ResizeObserver loop')) return;
   showFatal(e.error?.stack || e.message || String(e.error || e));
 });
 window.addEventListener('unhandledrejection', (e) => {

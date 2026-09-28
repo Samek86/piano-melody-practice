@@ -1,0 +1,156 @@
+.staff-editor {
+  height: 100%;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  background: #f5f3ed;
+  color: #1f2937;
+}
+
+.editor-bar {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px 12px;
+  padding-top: max(10px, env(safe-area-inset-top));
+  background: #fffef7;
+  border-bottom: 1px solid #e8e4d9;
+}
+
+.editor-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+}
+
+.editor-heading {
+  font-weight: 700;
+  margin-right: 4px;
+}
+
+.editor-row label {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.82rem;
+  color: #4b5563;
+}
+
+.editor-row input,
+.editor-row select {
+  font: inherit;
+  font-size: 0.88rem;
+  padding: 4px 6px;
+  border: 1px solid #d6d3c9;
+  border-radius: 6px;
+  background: white;
+  color: #111827;
+}
+
+.editor-row input[type='text'] {
+  width: 9.5rem;
+}
+
+.editor-row input[type='number'] {
+  width: 4.2rem;
+}
+
+.editor-tools {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  align-items: center;
+}
+
+.editor-tools .sep {
+  width: 1px;
+  align-self: stretch;
+  background: #e8e4d9;
+  margin: 0 4px;
+}
+
+.tool-btn {
+  min-width: 36px;
+  min-height: 34px;
+  padding: 4px 8px;
+  border: 1px solid #d6d3c9;
+  border-radius: 6px;
+  background: white;
+  color: #1f2937;
+  font: inherit;
+  font-size: 0.86rem;
+  cursor: pointer;
+}
+
+.tool-btn:hover {
+  border-color: #2563eb;
+}
+
+.tool-btn.active {
+  background: #2563eb;
+  border-color: #1d4ed8;
+  color: white;
+}
+
+.tool-btn:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.editor-message {
+  margin: 0;
+  font-size: 0.86rem;
+  color: #1d4ed8;
+}
+
+.editor-canvas {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+  scrollbar-gutter: stable;
+  background: #fffef7;
+}
+
+.editor-score-host {
+  min-height: 100%;
+  touch-action: pan-y;
+}
+
+.editor-score-host .vf-stavenote {
+  cursor: grab;
+}
+
+.editor-info {
+  flex: 0 0 auto;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 14px;
+  align-items: center;
+  padding: 8px 12px;
+  padding-bottom: max(8px, env(safe-area-inset-bottom));
+  background: #efebe3;
+  border-top: 1px solid #e8e4d9;
+  font-size: 0.9rem;
+}
+
+.editor-info .warn-over {
+  color: #b91c1c;
+  font-weight: 700;
+}
+
+.editor-info .warn-under {
+  color: #b45309;
+  font-weight: 700;
+}
+
+.editor-info .warn-ok {
+  color: #047857;
+  font-weight: 600;
+}
+
+.editor-hint {
+  color: #6b7280;
+  font-size: 0.78rem;
+}
